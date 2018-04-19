@@ -1,0 +1,1 @@
+tsc target/mquery.ts --outFile output/mquery.js

@@ -1,0 +1,19 @@
+
+version: 2
+
+jobs:
+  heroweb-build:
+    docker:
+      - image: circleci/node:9.8.0-browsers
+    working_directory: ~/mQuery
+    steps:
+      - checkout
+      - run:
+          name: Installing node typescript tools...
+          command: |
+            sudo apt install -y node-typescript
+
+      - run:
+          name: Building mQuery...
+          command: |
+            cd ~/mQuery && bash ./deploy.sh
