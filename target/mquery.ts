@@ -1,14 +1,15 @@
 type Callback = Function;
 
 class MQuery {
+    private static DOC = document;
     private nodeList: NodeList;
     
-    constructor(ref?: any) {
-        if (MQuery.typeOf(ref, 'function')) {
+    constructor(obj?: any) {
+        if (MQuery.typeOf(obj, 'function')) {
             this.nodeList = MQuery.generateNodeList();
-            this.ready(ref);
+            this.ready(obj);
         } else {
-            this.nodeList = MQuery.generateNodeList(ref);
+            this.nodeList = MQuery.generateNodeList(obj);
         }
     }
 
@@ -23,32 +24,68 @@ class MQuery {
         return type === (typeof object).toLowerCase();
     }
 
+    private static getOrDefault(value: any, defaultValue: any): any {
+        return MQuery.isSet(value) ? value : defaultValue;
+    }
+
+    private static snakeToCamelCase(s: string): string {
+        return s.replace(/(\-\w)/g, (m) => m[1].toUpperCase());
+    }
+
+    private static camelToSnakeCase(c: string): string {
+        return c.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase());
+    }
+
+    private static arrayIncludes(array: any[], elem: any): boolean {
+        return array.some((value) => value === elem);
+    }
+
+    private static htmlToNode(html: string): Node {
+        let tmp = MQuery.DOC.createElement('_');
+        tmp.innerHTML = html;
+        return tmp.firstChild;
+    }
+
+    private static nodeIsSelector(node: Node, selector: string): boolean {
+        let tmp = MQuery.DOC.createElement('_');
+        tmp.appendChild(node);
+        return !!tmp.querySelector(selector);
+    }
+
+    private static hasParent(elem: Node): boolean {
+        return !!elem.parentNode;
+    }
+
     private static forEach(nodeList: NodeList, callback: Callback) {
         Array.prototype.forEach.call(nodeList, callback);
     }
 
-    private static generateNodeList(ref?: any): NodeList {
-        if (!MQuery.isSet(ref)) {
-            return MQuery.listToNodeList([document]);
+    private static generateNodeList(obj?: any): NodeList {
+        if (!MQuery.isSet(obj)) {
+            return MQuery.listToNodeList([MQuery.DOC]);
         }
 
-        if (MQuery.typeOf(ref, 'string')) {
-            return document.querySelectorAll(ref);
+        if (MQuery.typeOf(obj, 'string')) {
+            try {
+                return MQuery.DOC.querySelectorAll(obj);
+            } catch (e) {
+                return MQuery.listToNodeList([MQuery.htmlToNode(obj)]);
+            }
         }
 
-        if (MQuery.isSet(ref.nodeList)) {
-            return ref.nodeList;
+        if (MQuery.isSet(obj.nodeList)) {
+            return obj.nodeList;
         }
 
-        if (MQuery.typeOf(ref, 'nodelist')) {
-            return ref;
+        if (MQuery.typeOf(obj, 'nodelist')) {
+            return obj;
         }
 
-        return MQuery.listToNodeList(MQuery.typeOf(ref, 'array') ? ref : [ref]);
+        return MQuery.listToNodeList(MQuery.typeOf(obj, 'array') ? obj : [obj]);
     }
 
-    private static listToNodeList(list: Array<Object>): NodeList {
-        let emptyNodeList = document.createDocumentFragment().childNodes,
+    private static listToNodeList(list: Array<Node>): NodeList {
+        let emptyNodeList = MQuery.DOC.createDocumentFragment().childNodes,
             properties = {};
 
         list.forEach((node, index) => properties[index] = {value: node});
@@ -59,8 +96,8 @@ class MQuery {
 
     private eachConcat(fnVal: Callback): string {
         let value = '';
-        this.each(function () {
-            value += fnVal.apply(this) + ' ';
+        this.each((i, elem) => {
+            value += fnVal.apply(elem, [i, elem]) + ' ';
         });
         return value.trim() || undefined;
     }
@@ -90,29 +127,34 @@ class MQuery {
 
     public leaves(): MQuery {
         let leaves = [];
-        this.each(function () {
-            MQuery.forEach(this.getElementsByTagName("*"), (e) => {
-                if (!e.hasChildNodes()) {leaves.push(e); }
+        this.each((i, elem) => {
+            if (!elem.hasChildNodes()) {
+                leaves.push(elem);
+                return;
+            }
+            MQuery.forEach(elem.getElementsByTagName("*"), (child) => {
+                if (!child.hasChildNodes()) {leaves.push(child); }
             });
         });
         return new MQuery(leaves);
     }
 
     public ready(handler: EventListener): MQuery {
-        document.addEventListener('DOMContentLoaded', handler, true);
+        MQuery.DOC.addEventListener('DOMContentLoaded', handler, true);
         return this;
     }
 
     public each(handler: Callback): MQuery {
-        MQuery.forEach(this.nodeList, (node) => handler.apply(node));
+		let count = 0;
+        MQuery.forEach(this.nodeList, (node) => handler.apply(node, [count++, node]));
         return this;
     }
 
     public on(event: string, handler: EventListener): MQuery {
         let events = event.split(' ');
-        return this.each(function () {
+        return this.each((i, elem) => {
             events.forEach((event) => {
-                this.addEventListener(event, handler, true);
+                elem.addEventListener(event, handler, true);
             })
         });
     }
@@ -120,58 +162,92 @@ class MQuery {
     public find(selector: string): MQuery {
         let nodes: Array<Node> = [];
 
-        this.each(function () {
-            let concat = this.querySelectorAll(selector);
-            concat.forEach(node => nodes.push(node));
+        this.each((i, elem) => {
+            let concat = elem.querySelectorAll(selector);
+            concat.forEach(node => {
+                if (!MQuery.arrayIncludes(nodes, node)) {
+                    nodes.push(node);
+                }
+            });
         });
 
         return new MQuery(nodes);
     }
+	
+	public parent(selector?: string): MQuery {
+        let parents = new Array<Node>();
+
+        this.each((i, elem) => {
+            if (!MQuery.hasParent(elem)) {return false; }
+            elem = elem.parentNode;
+
+            if (MQuery.isSet(selector) && !MQuery.nodeIsSelector(elem, selector)) {
+                return false;
+            }
+
+            if (!MQuery.arrayIncludes(parents, elem)) {
+                parents.push(elem);
+            }
+            return true;
+        });
+
+        return new MQuery(parents);
+    }
 
     public trigger(event: string): MQuery {
-        return this.each(function () {
+        return this.each((i, elem) => {
             if (event === 'focus') {
-                this.focus();
+                elem.focus();
                 return;
             }
-            this.dispatchEvent(new CustomEvent(event));
+            elem.dispatchEvent(new CustomEvent(event));
         });
     }
 
     public attr(name: string, value?: string): MQuery | string {
         if (MQuery.isSet(value)) {
-            return this.each(function () {
-                if (MQuery.isSet(this[name])) {
-                    this[name] = value;
+            return this.each((i, elem) => {
+                if (MQuery.isSet(elem[name])) {
+                    elem[name] = value;
                     return;
                 }
-                this.setAttribute(name, value);
+                elem.setAttribute(name, value);
             });
         }
-        return this.eachConcat(function () {
-            return this.getAttribute(name);
-        });
+        return this.eachConcat((i, elem) => elem.getAttribute(name));
     }
 
     public css(name: string, value?: string): MQuery | string {
+        name = MQuery.snakeToCamelCase(name);
+
         if (MQuery.isSet(value)) {
-            return this.each(function () {
-                this.style[name] = value;
+            return this.each((i, elem) => {
+                elem.style[name] = value;
             });
         }
-        return this.eachConcat(function () {
-            return this.style[name];
+        return this.eachConcat((i, elem) => {
+            return elem.style[name];
         });
     }
 
     public text(value?: string): MQuery | string {
         if (MQuery.isSet(value)) {
-            return this.each(function () {
-                this.innerHTML = value;
+            return this.each((i, elem) => {
+                elem.innerHTML = value;
             });
         }
-        return this.eachConcat(function () {
-            return this.innerHTML;
+        return this.eachConcat((i, elem) => elem.innerHTML);
+    }
+
+    public prepend(value: string): MQuery {
+        return this.each((i, elem) => {
+            elem.innerHTML = value + elem.innerHTML;
+        });
+    }
+
+    public append(value: string): MQuery {
+        return this.each((i, elem) => {
+            elem.innerHTML = elem.innerHTML + value;
         });
     }
 

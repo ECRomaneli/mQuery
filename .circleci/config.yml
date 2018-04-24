@@ -9,10 +9,10 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Installing node typescript tools...
+          name: Installing node typescript tools and yarn...
           command: |
-            sudo apt install -y node-typescript
-
+            sudo apt install -y node-typescript && \
+            sudo npm install -g uglify-js yarn
       - run:
           name: Building mQuery...
           command: |
