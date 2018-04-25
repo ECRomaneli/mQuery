@@ -1,13 +1,52 @@
 var MQuery = /** @class */ (function () {
     function MQuery(obj) {
+        this.length = 0;
+        var nodes;
         if (MQuery.typeOf(obj, 'function')) {
-            this.nodeList = MQuery.generateNodeList();
+            nodes = MQuery.generateNodeArray();
             this.ready(obj);
         }
         else {
-            this.nodeList = MQuery.generateNodeList(obj);
+            nodes = MQuery.generateNodeArray(obj);
         }
+        this.concat(nodes);
     }
+    // ARRAY PROPERTIES
+    MQuery.toArray = function (nodes) {
+        return [].slice.call(nodes || []);
+    };
+    MQuery.prototype.push = function (node, once) {
+        if (once && this.includes(node)) {
+            return this;
+        }
+        this[this.length++] = node;
+        return this;
+    };
+    MQuery.prototype.pop = function () {
+        return this[--this.length];
+    };
+    MQuery.prototype.forEach = function (fn) {
+        for (var i = 0; i < this.length; ++i) {
+            fn(this[i], i, this);
+        }
+    };
+    MQuery.prototype.some = function (fn) {
+        for (var i = this.length - 1; i >= 0; --i) {
+            if (fn(this[i])) {
+                return true;
+            }
+        }
+        return false;
+    };
+    MQuery.prototype.includes = function (node) {
+        return this.some(function (value) { return value === node; });
+    };
+    MQuery.prototype.concat = function (nodes, once) {
+        var _this = this;
+        nodes.forEach(function (node) { return _this.push(node, once); });
+        return this;
+    };
+    // UTILITIES
     MQuery.isSet = function (param) {
         return param !== undefined;
     };
@@ -16,6 +55,9 @@ var MQuery = /** @class */ (function () {
             return Array.isArray(object);
         }
         return type === (typeof object).toLowerCase();
+    };
+    MQuery.instanceOf = function (object, type) {
+        return object instanceof type;
     };
     MQuery.getOrDefault = function (value, defaultValue) {
         return MQuery.isSet(value) ? value : defaultValue;
@@ -26,9 +68,10 @@ var MQuery = /** @class */ (function () {
     MQuery.camelToSnakeCase = function (c) {
         return c.replace(/([A-Z])/g, function (m) { return '-' + m.toLowerCase(); });
     };
-    MQuery.arrayIncludes = function (array, elem) {
-        return array.some(function (value) { return value === elem; });
+    MQuery.forEach = function (nodeList, callback) {
+        Array.prototype.forEach.call(nodeList, callback);
     };
+    // MQUERY PROPERTIES
     MQuery.htmlToNode = function (html) {
         var tmp = MQuery.DOC.createElement('_');
         tmp.innerHTML = html;
@@ -42,34 +85,22 @@ var MQuery = /** @class */ (function () {
     MQuery.hasParent = function (elem) {
         return !!elem.parentNode;
     };
-    MQuery.forEach = function (nodeList, callback) {
-        Array.prototype.forEach.call(nodeList, callback);
-    };
-    MQuery.generateNodeList = function (obj) {
+    MQuery.generateNodeArray = function (obj) {
         if (!MQuery.isSet(obj)) {
-            return MQuery.listToNodeList([MQuery.DOC]);
+            return [MQuery.DOC];
         }
         if (MQuery.typeOf(obj, 'string')) {
             try {
-                return MQuery.DOC.querySelectorAll(obj);
+                return MQuery.toArray(MQuery.DOC.querySelectorAll(obj));
             }
             catch (e) {
-                return MQuery.listToNodeList([MQuery.htmlToNode(obj)]);
+                return [MQuery.htmlToNode(obj)];
             }
         }
-        if (MQuery.isSet(obj.nodeList)) {
-            return obj.nodeList;
-        }
-        if (MQuery.typeOf(obj, 'nodelist')) {
+        if (MQuery.instanceOf(obj, MQuery)) {
             return obj;
         }
-        return MQuery.listToNodeList(MQuery.typeOf(obj, 'array') ? obj : [obj]);
-    };
-    MQuery.listToNodeList = function (list) {
-        var emptyNodeList = MQuery.DOC.createDocumentFragment().childNodes, properties = {};
-        list.forEach(function (node, index) { return properties[index] = { value: node }; });
-        properties['length'] = { value: list.length };
-        return Object.create(emptyNodeList, properties);
+        return MQuery.typeOf(obj, 'array') ? obj : [obj];
     };
     MQuery.prototype.eachConcat = function (fnVal) {
         var value = '';
@@ -88,29 +119,20 @@ var MQuery = /** @class */ (function () {
             };
         });
     };
-    MQuery.prototype.firstNode = function () {
-        return this.nodeList[0];
-    };
-    MQuery.prototype.lastNode = function () {
-        return this.nodeList[this.nodeList.length - 1];
-    };
-    MQuery.prototype.nodes = function () {
-        return this.nodeList;
-    };
     MQuery.prototype.leaves = function () {
-        var leaves = [];
+        var leaves = new MQuery([]);
         this.each(function (i, elem) {
-            if (!elem.hasChildNodes()) {
+            if (!elem.firstElementChild) {
                 leaves.push(elem);
                 return;
             }
             MQuery.forEach(elem.getElementsByTagName("*"), function (child) {
-                if (!child.hasChildNodes()) {
-                    leaves.push(child);
+                if (!child.firstElementChild) {
+                    leaves.push(child, true);
                 }
             });
         });
-        return new MQuery(leaves);
+        return leaves;
     };
     MQuery.prototype.ready = function (handler) {
         MQuery.DOC.addEventListener('DOMContentLoaded', handler, true);
@@ -118,7 +140,7 @@ var MQuery = /** @class */ (function () {
     };
     MQuery.prototype.each = function (handler) {
         var count = 0;
-        MQuery.forEach(this.nodeList, function (node) { return handler.apply(node, [count++, node]); });
+        this.forEach((function (node) { return handler.apply(node, [count++, node]); }));
         return this;
     };
     MQuery.prototype.on = function (event, handler) {
@@ -129,20 +151,24 @@ var MQuery = /** @class */ (function () {
             });
         });
     };
-    MQuery.prototype.find = function (selector) {
-        var nodes = [];
-        this.each(function (i, elem) {
-            var concat = elem.querySelectorAll(selector);
-            concat.forEach(function (node) {
-                if (!MQuery.arrayIncludes(nodes, node)) {
-                    nodes.push(node);
-                }
+    MQuery.prototype.off = function (event, handler) {
+        var events = event.split(' ');
+        return this.each(function (i, elem) {
+            events.forEach(function (event) {
+                elem.removeEventListener(event, handler, true);
             });
         });
-        return new MQuery(nodes);
+    };
+    MQuery.prototype.find = function (selector) {
+        var nodes = new MQuery([]);
+        this.each(function (i, elem) {
+            var concat = elem.querySelectorAll(selector);
+            concat.forEach(function (node) { return nodes.push(node, true); });
+        });
+        return nodes;
     };
     MQuery.prototype.parent = function (selector) {
-        var parents = new Array();
+        var parents = new MQuery([]);
         this.each(function (i, elem) {
             if (!MQuery.hasParent(elem)) {
                 return false;
@@ -151,12 +177,10 @@ var MQuery = /** @class */ (function () {
             if (MQuery.isSet(selector) && !MQuery.nodeIsSelector(elem, selector)) {
                 return false;
             }
-            if (!MQuery.arrayIncludes(parents, elem)) {
-                parents.push(elem);
-            }
+            parents.push(elem, true);
             return true;
         });
-        return new MQuery(parents);
+        return parents;
     };
     MQuery.prototype.trigger = function (event) {
         return this.each(function (i, elem) {
@@ -193,6 +217,14 @@ var MQuery = /** @class */ (function () {
     MQuery.prototype.text = function (value) {
         if (MQuery.isSet(value)) {
             return this.each(function (i, elem) {
+                elem.textContent = value;
+            });
+        }
+        return this.eachConcat(function (i, elem) { return elem.textContent; });
+    };
+    MQuery.prototype.html = function (value) {
+        if (MQuery.isSet(value)) {
+            return this.each(function (i, elem) {
                 elem.innerHTML = value;
             });
         }
@@ -219,4 +251,3 @@ var MQuery = /** @class */ (function () {
 }());
 var mQuery = function (ref) { return new MQuery(ref); }, m$ = mQuery;
 mQuery['ready'] = mQuery().ready;
-var $ = m$;
