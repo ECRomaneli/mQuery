@@ -159,6 +159,15 @@ class MQuery {
         });
     }
 
+    public off(event: string, handler: EventListener): MQuery {
+        let events = event.split(' ');
+        return this.each((i, elem) => {
+            events.forEach((event) => {
+                elem.removeEventListener(event, handler, true);
+            })
+        });
+    }
+
     public find(selector: string): MQuery {
         let nodes: Array<Node> = [];
 
@@ -225,12 +234,22 @@ class MQuery {
                 elem.style[name] = value;
             });
         }
+
         return this.eachConcat((i, elem) => {
             return elem.style[name];
         });
     }
 
     public text(value?: string): MQuery | string {
+        if (MQuery.isSet(value)) {
+            return this.each((i, elem) => {
+                elem.textContent = value;
+            });
+        }
+        return this.eachConcat((i, elem) => elem.textContent);
+    }
+
+    public html(value?: string): MQuery | string {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
                 elem.innerHTML = value;
@@ -261,3 +280,4 @@ class MQuery {
 
 let mQuery = (ref?: any) => new MQuery(ref), m$ = mQuery;
 mQuery['ready'] = mQuery().ready;
+let $ = m$;
