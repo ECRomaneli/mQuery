@@ -129,6 +129,14 @@ var MQuery = /** @class */ (function () {
             });
         });
     };
+    MQuery.prototype.off = function (event, handler) {
+        var events = event.split(' ');
+        return this.each(function (i, elem) {
+            events.forEach(function (event) {
+                elem.removeEventListener(event, handler, true);
+            });
+        });
+    };
     MQuery.prototype.find = function (selector) {
         var nodes = [];
         this.each(function (i, elem) {
@@ -191,6 +199,14 @@ var MQuery = /** @class */ (function () {
         });
     };
     MQuery.prototype.text = function (value) {
+        if (MQuery.isSet(value)) {
+            return this.each(function (i, elem) {
+                elem.textContent = value;
+            });
+        }
+        return this.eachConcat(function (i, elem) { return elem.textContent; });
+    };
+    MQuery.prototype.html = function (value) {
         if (MQuery.isSet(value)) {
             return this.each(function (i, elem) {
                 elem.innerHTML = value;
