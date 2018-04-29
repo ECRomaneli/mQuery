@@ -1,6 +1,7 @@
 type Callback = Function;
 
 class MQuery {
+    private static appName = 'mQuery';
     private static DOC = document;
     private length = 0;
     
@@ -23,9 +24,10 @@ class MQuery {
         return [].slice.call(nodes || []);
     }
 
-    private push(node: Node, once?: boolean): MQuery {
-        if (once && this.includes(node)) {return this; }
+    private push(node: Node): MQuery {
+        if (!node || this.includes(node)) {return this; }
         this[this.length++] = node;
+        node[MQuery.appName] = this;
         return this;
     }
 
@@ -47,11 +49,11 @@ class MQuery {
     }
 
     private includes(node: Node): boolean {
-        return this.some((value) => value === node);
+        return node[MQuery.appName] === this;
     }
 
-    private concat(nodes: any, once?: boolean): MQuery {
-        nodes.forEach((node) => this.push(node, once));
+    private concat(nodes: any): MQuery {
+        nodes.forEach((node) => this.push(node));
         return this;
     }
 
@@ -151,7 +153,7 @@ class MQuery {
                 return;
             }
             MQuery.forEach(elem.getElementsByTagName("*"), (child) => {
-                if (!child.firstElementChild) {leaves.push(child, true); }
+                if (!child.firstElementChild) {leaves.push(child); }
             });
         });
         return leaves;
@@ -191,7 +193,7 @@ class MQuery {
 
         this.each((i, elem) => {
             let concat = elem.querySelectorAll(selector);
-            concat.forEach(node => nodes.push(node, true));
+            concat.forEach(node => nodes.push(node));
         });
 
         return nodes;
@@ -208,7 +210,7 @@ class MQuery {
                 return false;
             }
 
-            parents.push(elem, true);
+            parents.push(elem);
             return true;
         });
 
