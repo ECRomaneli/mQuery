@@ -70,10 +70,10 @@ var MQuery = /** @class */ (function () {
         Object.keys(obj).forEach(function (key) { return fn(key, obj[key]); });
     };
     // MQUERY PROPERTIES
-    MQuery.htmlToNode = function (html) {
+    MQuery.codeToNodeList = function (code) {
         var tmp = MQuery.DOC.createElement('_');
-        tmp.innerHTML = html;
-        return tmp.firstChild;
+        tmp.innerHTML = code;
+        return tmp.childNodes;
     };
     MQuery.matches = function (node, selector) {
         if (!MQuery.isSet(selector)) {
@@ -98,7 +98,7 @@ var MQuery = /** @class */ (function () {
                 return MQuery.toArray(MQuery.DOC.querySelectorAll(obj));
             }
             catch (e) {
-                return [MQuery.htmlToNode(obj)];
+                return MQuery.toArray(MQuery.codeToNodeList(obj));
             }
         }
         if (MQuery.instanceOf(obj, MQuery)) {
