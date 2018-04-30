@@ -86,10 +86,10 @@ class MQuery {
 
     // MQUERY PROPERTIES
 
-    private static htmlToNode(html: string): Node {
+    private static codeToNodeList(code: string): NodeList {
         let tmp = MQuery.DOC.createElement('_');
-        tmp.innerHTML = html;
-        return tmp.firstChild;
+        tmp.innerHTML = code;
+        return tmp.childNodes;
     }
 
     private static matches(node: any, selector: string): boolean {
@@ -113,7 +113,7 @@ class MQuery {
             try {
                 return MQuery.toArray(MQuery.DOC.querySelectorAll(obj));
             } catch (e) {
-                return [MQuery.htmlToNode(obj)];
+                return MQuery.toArray(MQuery.codeToNodeList(obj));
             }
         }
 
