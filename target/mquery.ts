@@ -20,8 +20,8 @@ class MQuery {
 
     // ARRAY PROPERTIES
     
-    private static toArray(nodes: NodeList): Array<Node> {
-        return [].slice.call(nodes || []);
+    private static toArray(obj: any): Array<any> {
+        return [].slice.call(obj || []);
     }
 
     private push(node: Node): MQuery {
@@ -98,6 +98,18 @@ class MQuery {
         let tmp = MQuery.DOC.createElement('_');
         tmp.appendChild(node);
         return !!tmp.querySelector(selector);
+    }
+
+    private static parseText(args: Array<any>): string {
+        let text = '';
+        args.forEach((value, i) => {
+            if (MQuery.instanceOf(value, MQuery)) {
+                text += value.outerHtml();
+            } else if (MQuery.typeOf(value, 'string')) {
+                text += value;
+            }
+        });
+        return text;
     }
 
     private static hasParent(elem: Node): boolean {
@@ -288,6 +300,15 @@ class MQuery {
         return this.eachConcat((i, elem) => elem.innerHTML);
     }
 
+    public outerHtml(value?: string): MQuery | string {
+        if (MQuery.isSet(value)) {
+            return this.each((i, elem) => {
+                elem.outerHTML = value;
+            });
+        }
+        return this.eachConcat((i, elem) => elem.outerHTML);
+    }
+
     public simblings(selector?: string): MQuery {
         let simblings = new MQuery([]);
         this.each((i, elem) => {
@@ -324,15 +345,18 @@ class MQuery {
         return next;
     }
 
-    public prepend(value: string): MQuery {
+    public prepend(): MQuery {
+        let args = MQuery.toArray(arguments);
         return this.each((i, elem) => {
-            elem.innerHTML = value + elem.innerHTML;
+            elem.innerHTML = MQuery.parseText(args) + elem.innerHTML;
         });
     }
 
-    public append(value: string): MQuery {
+    public append(): MQuery {
+        let args = MQuery.toArray(arguments);
+        console.log(args);
         return this.each((i, elem) => {
-            elem.innerHTML = elem.innerHTML + value;
+            elem.innerHTML = elem.innerHTML + MQuery.parseText(args);
         });
     }
 
