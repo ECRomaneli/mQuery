@@ -340,6 +340,22 @@ class MQuery {
         }
         return this.attr('value', value);
     }
+
+    public addClass(className: string): MQuery {
+        return this.each((i, elem) => elem.classList.add(className));
+    }
+
+    public removeClass(className: string): MQuery {
+        return this.each((i, elem) => elem.classList.remove(className));
+    }
+
+    public hasClass(className: string): boolean {
+        return this.some((elem) => elem.classList.contains(className));
+    }
+
+    public toggleClass(className: string): MQuery {
+        return this.each((i, elem) => elem.classList.toggle(className));
+    }
 }
 
 let mQuery = (ref?: any) => new MQuery(ref), m$ = mQuery;
