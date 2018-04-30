@@ -15,15 +15,13 @@ var MQuery = /** @class */ (function () {
     MQuery.toArray = function (nodes) {
         return [].slice.call(nodes || []);
     };
-    MQuery.prototype.push = function (node, once) {
-        if (once && this.includes(node)) {
+    MQuery.prototype.push = function (node) {
+        if (!node || node[MQuery.appName] === this) {
             return this;
         }
         this[this.length++] = node;
+        node[MQuery.appName] = this;
         return this;
-    };
-    MQuery.prototype.pop = function () {
-        return this[--this.length];
     };
     MQuery.prototype.forEach = function (fn) {
         for (var i = 0; i < this.length; ++i) {
@@ -32,18 +30,15 @@ var MQuery = /** @class */ (function () {
     };
     MQuery.prototype.some = function (fn) {
         for (var i = this.length - 1; i >= 0; --i) {
-            if (fn(this[i])) {
+            if (fn(this[i], i, this)) {
                 return true;
             }
         }
         return false;
     };
-    MQuery.prototype.includes = function (node) {
-        return this.some(function (value) { return value === node; });
-    };
-    MQuery.prototype.concat = function (nodes, once) {
+    MQuery.prototype.concat = function (nodes) {
         var _this = this;
-        nodes.forEach(function (node) { return _this.push(node, once); });
+        nodes.forEach(function (node) { return _this.push(node); });
         return this;
     };
     // UTILITIES
@@ -68,8 +63,11 @@ var MQuery = /** @class */ (function () {
     MQuery.camelToSnakeCase = function (c) {
         return c.replace(/([A-Z])/g, function (m) { return '-' + m.toLowerCase(); });
     };
-    MQuery.forEach = function (nodeList, callback) {
-        Array.prototype.forEach.call(nodeList, callback);
+    MQuery.forEach = function (nodeList, fn) {
+        Array.prototype.forEach.call(nodeList, fn);
+    };
+    MQuery.forEachObj = function (obj, fn) {
+        Object.keys(obj).forEach(function (key) { return fn(key, obj[key]); });
     };
     // MQUERY PROPERTIES
     MQuery.htmlToNode = function (html) {
@@ -77,7 +75,13 @@ var MQuery = /** @class */ (function () {
         tmp.innerHTML = html;
         return tmp.firstChild;
     };
-    MQuery.nodeIsSelector = function (node, selector) {
+    MQuery.matches = function (node, selector) {
+        if (!MQuery.isSet(selector)) {
+            return true;
+        }
+        if (node.matches) {
+            return node.matches(selector);
+        }
         var tmp = MQuery.DOC.createElement('_');
         tmp.appendChild(node);
         return !!tmp.querySelector(selector);
@@ -128,7 +132,7 @@ var MQuery = /** @class */ (function () {
             }
             MQuery.forEach(elem.getElementsByTagName("*"), function (child) {
                 if (!child.firstElementChild) {
-                    leaves.push(child, true);
+                    leaves.push(child);
                 }
             });
         });
@@ -143,27 +147,31 @@ var MQuery = /** @class */ (function () {
         this.forEach((function (node) { return handler.apply(node, [count++, node]); }));
         return this;
     };
-    MQuery.prototype.on = function (event, handler) {
-        var events = event.split(' ');
-        return this.each(function (i, elem) {
-            events.forEach(function (event) {
-                elem.addEventListener(event, handler, true);
-            });
+    MQuery.prototype.on = function (event, selectOrHandler, handler) {
+        if (arguments.length === 2) {
+            var handler_1 = selectOrHandler;
+        }
+        var events = event.split(' '), elems = arguments.length === 3 ? this.find(selectOrHandler) : this;
+        elems.each(function (i, elem) {
+            events.forEach(function (event) { return elem.addEventListener(event, handler, true); });
         });
+        return this;
     };
-    MQuery.prototype.off = function (event, handler) {
-        var events = event.split(' ');
-        return this.each(function (i, elem) {
-            events.forEach(function (event) {
-                elem.removeEventListener(event, handler, true);
-            });
+    MQuery.prototype.off = function (event, selectOrHandler, handler) {
+        if (arguments.length === 2) {
+            var handler_2 = selectOrHandler;
+        }
+        var events = event.split(' '), elems = arguments.length === 3 ? this.find(selectOrHandler) : this;
+        elems.each(function (i, elem) {
+            events.forEach(function (event) { return elem.removeEventListener(event, handler, true); });
         });
+        return this;
     };
     MQuery.prototype.find = function (selector) {
         var nodes = new MQuery([]);
         this.each(function (i, elem) {
             var concat = elem.querySelectorAll(selector);
-            concat.forEach(function (node) { return nodes.push(node, true); });
+            nodes.concat(concat);
         });
         return nodes;
     };
@@ -174,21 +182,29 @@ var MQuery = /** @class */ (function () {
                 return false;
             }
             elem = elem.parentNode;
-            if (MQuery.isSet(selector) && !MQuery.nodeIsSelector(elem, selector)) {
+            if (!MQuery.matches(elem, selector)) {
                 return false;
             }
-            parents.push(elem, true);
+            parents.push(elem);
             return true;
         });
         return parents;
     };
-    MQuery.prototype.trigger = function (event) {
+    MQuery.prototype.trigger = function (event, data) {
         return this.each(function (i, elem) {
             if (event === 'focus') {
                 elem.focus();
                 return;
             }
-            elem.dispatchEvent(new CustomEvent(event));
+            var customEvent;
+            if (window['CustomEvent']) {
+                customEvent = new CustomEvent(event, data);
+            }
+            else {
+                customEvent = document.createEvent(MQuery.snakeToCamelCase(event));
+                customEvent.initCustomEvent(event, true, true, data);
+            }
+            elem.dispatchEvent(customEvent);
         });
     };
     MQuery.prototype.attr = function (name, value) {
@@ -203,8 +219,13 @@ var MQuery = /** @class */ (function () {
         }
         return this.eachConcat(function (i, elem) { return elem.getAttribute(name); });
     };
-    MQuery.prototype.css = function (name, value) {
-        name = MQuery.snakeToCamelCase(name);
+    MQuery.prototype.css = function (nameOrJSON, value) {
+        var _this = this;
+        if (!MQuery.typeOf(nameOrJSON, 'string')) {
+            MQuery.forEachObj(nameOrJSON, function (key, value) { return _this.css(key, value); });
+            return this;
+        }
+        var name = MQuery.snakeToCamelCase(nameOrJSON);
         if (MQuery.isSet(value)) {
             return this.each(function (i, elem) {
                 elem.style[name] = value;
@@ -230,6 +251,43 @@ var MQuery = /** @class */ (function () {
         }
         return this.eachConcat(function (i, elem) { return elem.innerHTML; });
     };
+    MQuery.prototype.simblings = function (selector) {
+        var simblings = new MQuery([]);
+        this.each(function (i, elem) {
+            MQuery.forEach(elem.parentNode.children, function (child) {
+                if (child === elem) {
+                    return false;
+                }
+                if (!MQuery.matches(child, selector)) {
+                    return false;
+                }
+                simblings.push(child);
+            });
+        });
+        return simblings;
+    };
+    MQuery.prototype.prev = function (selector) {
+        var prev = new MQuery([]), prevElem;
+        this.each(function (i, elem) {
+            prevElem = elem.previousElementSibling;
+            while (prevElem && !MQuery.matches(prevElem, selector)) {
+                prevElem = prevElem.previousElementSibling;
+            }
+            prev.push(prevElem);
+        });
+        return prev;
+    };
+    MQuery.prototype.next = function (selector) {
+        var next = new MQuery([]), nextElem;
+        this.each(function (i, elem) {
+            nextElem = elem.nextElementSibling;
+            while (nextElem && !MQuery.matches(nextElem, selector)) {
+                nextElem = nextElem.nextElementSibling;
+            }
+            next.push(nextElem);
+        });
+        return next;
+    };
     MQuery.prototype.prepend = function (value) {
         return this.each(function (i, elem) {
             elem.innerHTML = value + elem.innerHTML;
@@ -246,6 +304,19 @@ var MQuery = /** @class */ (function () {
         }
         return this.attr('value', value);
     };
+    MQuery.prototype.addClass = function (className) {
+        return this.each(function (i, elem) { return elem.classList.add(className); });
+    };
+    MQuery.prototype.removeClass = function (className) {
+        return this.each(function (i, elem) { return elem.classList.remove(className); });
+    };
+    MQuery.prototype.hasClass = function (className) {
+        return this.some(function (elem) { return elem.classList.contains(className); });
+    };
+    MQuery.prototype.toggleClass = function (className) {
+        return this.each(function (i, elem) { return elem.classList.toggle(className); });
+    };
+    MQuery.appName = 'mQuery';
     MQuery.DOC = document;
     return MQuery;
 }());
