@@ -1,7 +1,7 @@
 ![CircleCI](https://circleci.com/gh/ECRomaneli/mQuery.svg?style=shield)
 ![License](https://img.shields.io/npm/l/mquery.svg)
 
-# mQuery.js
+# mQuery JS
 The mQuery (or Mini-jQuery) is a most simple and clean way to query DOM Elements and bind Event Listeners without jQuery.
 
 ## Objectives
@@ -12,28 +12,30 @@ Actually, all functions listed behind, are jQuery compatible. Then, all jQuery c
 
 - [ready(callback)](http://api.jquery.com/ready/)
 - [each(callback)](http://api.jquery.com/each/)
-- [on(events, handler)](http://api.jquery.com/on/)
-- [off(events, handler)](http://api.jquery.com/off/)
-- [trigger(events)](http://api.jquery.com/trigger/)
+- [on(events[, selector], handler)](http://api.jquery.com/on/)
+- [off(events[, selector], handler)](http://api.jquery.com/off/)
+- [trigger(events[, data])](http://api.jquery.com/trigger/)
 - [find(selector)](http://api.jquery.com/find/)
 - [parent([selector])](http://api.jquery.com/parent/)
 - [css(prop, value)](http://api.jquery.com/css/)
+- [css(propArray)](http://api.jquery.com/css/)
 - [attr(attrName, value)](http://api.jquery.com/attr/)
 - [html([htmlText])](http://api.jquery.com/html/)
 - [text([text])](http://api.jquery.com/text/)
 - [val([value])](http://api.jquery.com/val/)
+- [simblings([selector])](http://api.jquery.com/simblings/)
+- [prev([selector])](http://api.jquery.com/prev/)
+- [next([selector])](http://api.jquery.com/next/)
+- [addClass(class)](http://api.jquery.com/addclass/)
+- [removeClass(class)](http://api.jquery.com/removeclass/)
+- [toggleClass(class)](http://api.jquery.com/toggleclass/)
+- [hasClass(class)](http://api.jquery.com/hasClass/)
+
 
 #### On Working...
 - prepend()
 - append()
-- prev()
-- next()
-- simblings()
 - parents()
-- addClass()
-- removeClass()
-- toggleClass()
-- hasClass()
 - width()
 - height()
 

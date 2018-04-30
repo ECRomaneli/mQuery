@@ -1,6 +1,7 @@
 type Callback = Function;
 
 class MQuery {
+    private static appName = 'mQuery';
     private static DOC = document;
     private length = 0;
     
@@ -23,14 +24,11 @@ class MQuery {
         return [].slice.call(nodes || []);
     }
 
-    private push(node: Node, once?: boolean): MQuery {
-        if (once && this.includes(node)) {return this; }
+    private push(node: Node): MQuery {
+        if (!node || node[MQuery.appName] === this) {return this; }
         this[this.length++] = node;
+        node[MQuery.appName] = this;
         return this;
-    }
-
-    private pop(): Node {
-        return this[--this.length];
     }
 
     private forEach(fn: Callback): void {
@@ -39,19 +37,15 @@ class MQuery {
         }
     }
 
-    private some(fn: Callback): boolean {
-        for (let i = this.length - 1; i >= 0; --i) {
-            if (fn(this[i])) {return true; }
-        }
-        return false;
-    }
+    private some(fn: Callback): boolean { 
+        for (let i = this.length - 1; i >= 0; --i) { 
+            if (fn(this[i], i, this)) {return true; } 
+        } 
+        return false; 
+    } 
 
-    private includes(node: Node): boolean {
-        return this.some((value) => value === node);
-    }
-
-    private concat(nodes: any, once?: boolean): MQuery {
-        nodes.forEach((node) => this.push(node, once));
+    private concat(nodes: any): MQuery {
+        nodes.forEach((node) => this.push(node));
         return this;
     }
 
@@ -82,9 +76,13 @@ class MQuery {
         return c.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase());
     }
 
-    private static forEach(nodeList: NodeList, callback: Callback) { 
-        Array.prototype.forEach.call(nodeList, callback); 
+    private static forEach(nodeList: NodeList, fn: Callback) { 
+        Array.prototype.forEach.call(nodeList, fn); 
     } 
+
+    private static forEachObj(obj: Object, fn: Callback): void {
+        Object.keys(obj).forEach((key) => fn(key, obj[key]));
+    }
 
     // MQUERY PROPERTIES
 
@@ -94,7 +92,9 @@ class MQuery {
         return tmp.firstChild;
     }
 
-    private static nodeIsSelector(node: Node, selector: string): boolean {
+    private static matches(node: any, selector: string): boolean {
+        if (!MQuery.isSet(selector)) {return true; }
+        if (node.matches) {return node.matches(selector); }
         let tmp = MQuery.DOC.createElement('_');
         tmp.appendChild(node);
         return !!tmp.querySelector(selector);
@@ -151,7 +151,7 @@ class MQuery {
                 return;
             }
             MQuery.forEach(elem.getElementsByTagName("*"), (child) => {
-                if (!child.firstElementChild) {leaves.push(child, true); }
+                if (!child.firstElementChild) {leaves.push(child); }
             });
         });
         return leaves;
@@ -168,22 +168,26 @@ class MQuery {
         return this;
     }
 
-    public on(event: string, handler: EventListener): MQuery {
-        let events = event.split(' ');
-        return this.each((i, elem) => {
-            events.forEach((event) => {
-                elem.addEventListener(event, handler, true);
-            })
+    public on(event: string, selectOrHandler: any, handler?: EventListener): MQuery {
+        if (arguments.length === 2) {let handler = selectOrHandler; }
+
+        let events = event.split(' '),
+            elems = arguments.length === 3 ? this.find(selectOrHandler) : this;
+        elems.each((i, elem) => {
+            events.forEach((event) => elem.addEventListener(event, handler, true));
         });
+        return this;
     }
 
-    public off(event: string, handler: EventListener): MQuery {
-        let events = event.split(' ');
-        return this.each((i, elem) => {
-            events.forEach((event) => {
-                elem.removeEventListener(event, handler, true);
-            })
+    public off(event: string, selectOrHandler: any, handler: EventListener): MQuery {
+        if (arguments.length === 2) {let handler = selectOrHandler; }
+
+        let events = event.split(' '),
+            elems = arguments.length === 3 ? this.find(selectOrHandler) : this;
+        elems.each((i, elem) => {
+            events.forEach((event) => elem.removeEventListener(event, handler, true));
         });
+        return this;
     }
 
     public find(selector: string): MQuery {
@@ -191,7 +195,7 @@ class MQuery {
 
         this.each((i, elem) => {
             let concat = elem.querySelectorAll(selector);
-            concat.forEach(node => nodes.push(node, true));
+            nodes.concat(concat);
         });
 
         return nodes;
@@ -204,24 +208,31 @@ class MQuery {
             if (!MQuery.hasParent(elem)) {return false; }
             elem = elem.parentNode;
 
-            if (MQuery.isSet(selector) && !MQuery.nodeIsSelector(elem, selector)) {
+            if (!MQuery.matches(elem, selector)) {
                 return false;
             }
 
-            parents.push(elem, true);
+            parents.push(elem);
             return true;
         });
 
         return parents;
     }
 
-    public trigger(event: string): MQuery {
+    public trigger(event: string, data?: Object): MQuery {
         return this.each((i, elem) => {
             if (event === 'focus') {
                 elem.focus();
                 return;
             }
-            elem.dispatchEvent(new CustomEvent(event));
+            let customEvent;
+            if (window['CustomEvent']) {
+                customEvent = new CustomEvent(event, data);
+            } else {
+                customEvent = document.createEvent(MQuery.snakeToCamelCase(event));
+                customEvent.initCustomEvent(event, true, true, data);
+            }
+            elem.dispatchEvent(customEvent);
         });
     }
 
@@ -238,8 +249,13 @@ class MQuery {
         return this.eachConcat((i, elem) => elem.getAttribute(name));
     }
 
-    public css(name: string, value?: string): MQuery | string {
-        name = MQuery.snakeToCamelCase(name);
+    public css(nameOrJSON: any, value?: string): MQuery | string {
+        if (!MQuery.typeOf(nameOrJSON, 'string')) {
+            MQuery.forEachObj(nameOrJSON, (key, value) => this.css(key, value));
+            return this;
+        }
+
+        let name = MQuery.snakeToCamelCase(nameOrJSON);
 
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
@@ -270,6 +286,42 @@ class MQuery {
         return this.eachConcat((i, elem) => elem.innerHTML);
     }
 
+    public simblings(selector?: string): MQuery {
+        let simblings = new MQuery([]);
+        this.each((i, elem) => {
+            MQuery.forEach(elem.parentNode.children, (child) => {
+                if (child === elem) {return false; }
+                if (!MQuery.matches(child, selector)) {return false; }
+                simblings.push(child);
+            });
+        });
+        return simblings;
+    }
+
+    public prev(selector?: string): MQuery {
+        let prev = new MQuery([]), prevElem;
+        this.each((i, elem) => {
+            prevElem = elem.previousElementSibling;
+            while (prevElem && !MQuery.matches(prevElem, selector)) {
+                prevElem = prevElem.previousElementSibling;
+            }
+            prev.push(prevElem);
+        });
+        return prev;
+    }
+
+    public next(selector?: string): MQuery {
+        let next = new MQuery([]), nextElem;
+        this.each((i, elem) => {
+            nextElem = elem.nextElementSibling;
+            while (nextElem && !MQuery.matches(nextElem, selector)) {
+                nextElem = nextElem.nextElementSibling;
+            }
+            next.push(nextElem);
+        });
+        return next;
+    }
+
     public prepend(value: string): MQuery {
         return this.each((i, elem) => {
             elem.innerHTML = value + elem.innerHTML;
@@ -287,6 +339,22 @@ class MQuery {
             return this.attr('value');
         }
         return this.attr('value', value);
+    }
+
+    public addClass(className: string): MQuery {
+        return this.each((i, elem) => elem.classList.add(className));
+    }
+
+    public removeClass(className: string): MQuery {
+        return this.each((i, elem) => elem.classList.remove(className));
+    }
+
+    public hasClass(className: string): boolean {
+        return this.some((elem) => elem.classList.contains(className));
+    }
+
+    public toggleClass(className: string): MQuery {
+        return this.each((i, elem) => elem.classList.toggle(className));
     }
 }
 
