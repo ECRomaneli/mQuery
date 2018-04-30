@@ -286,6 +286,42 @@ class MQuery {
         return this.eachConcat((i, elem) => elem.innerHTML);
     }
 
+    public simblings(selector?: string): MQuery {
+        let simblings = new MQuery([]);
+        this.each((i, elem) => {
+            MQuery.forEach(elem.parentNode.children, (child) => {
+                if (child === elem) {return false; }
+                if (!MQuery.matches(child, selector)) {return false; }
+                simblings.push(child);
+            });
+        });
+        return simblings;
+    }
+
+    public prev(selector?: string): MQuery {
+        let prev = new MQuery([]), prevElem;
+        this.each((i, elem) => {
+            prevElem = elem.previousElementSibling;
+            while (prevElem && !MQuery.matches(prevElem, selector)) {
+                prevElem = prevElem.previousElementSibling;
+            }
+            prev.push(prevElem);
+        });
+        return prev;
+    }
+
+    public next(selector?: string): MQuery {
+        let next = new MQuery([]), nextElem;
+        this.each((i, elem) => {
+            nextElem = elem.nextElementSibling;
+            while (nextElem && !MQuery.matches(nextElem, selector)) {
+                nextElem = nextElem.nextElementSibling;
+            }
+            next.push(nextElem);
+        });
+        return next;
+    }
+
     public prepend(value: string): MQuery {
         return this.each((i, elem) => {
             elem.innerHTML = value + elem.innerHTML;
