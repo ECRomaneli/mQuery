@@ -168,10 +168,13 @@ var MQuery = /** @class */ (function () {
         return this;
     };
     MQuery.prototype.find = function (selector) {
-        var nodes = new MQuery([]);
+        var nodes = new MQuery([]), concat;
         this.each(function (i, elem) {
-            var concat = elem.querySelectorAll(selector);
-            nodes.concat(concat);
+            try {
+                concat = elem.querySelectorAll(selector);
+                nodes.concat(concat);
+            }
+            catch (e) { }
         });
         return nodes;
     };

@@ -191,11 +191,13 @@ class MQuery {
     }
 
     public find(selector: string): MQuery {
-        let nodes = new MQuery([]);
+        let nodes = new MQuery([]), concat;
 
         this.each((i, elem) => {
-            let concat = elem.querySelectorAll(selector);
-            nodes.concat(concat);
+            try {
+                concat = elem.querySelectorAll(selector);
+                nodes.concat(concat);
+            } catch (e) {}
         });
 
         return nodes;
