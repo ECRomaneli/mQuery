@@ -12,8 +12,8 @@ var MQuery = /** @class */ (function () {
         this.concat(nodes);
     }
     // ARRAY PROPERTIES
-    MQuery.toArray = function (nodes) {
-        return [].slice.call(nodes || []);
+    MQuery.toArray = function (obj) {
+        return [].slice.call(obj || []);
     };
     MQuery.prototype.push = function (node) {
         if (!node || node[MQuery.appName] === this) {
@@ -85,6 +85,18 @@ var MQuery = /** @class */ (function () {
         var tmp = MQuery.DOC.createElement('_');
         tmp.appendChild(node);
         return !!tmp.querySelector(selector);
+    };
+    MQuery.parseText = function (args) {
+        var text = '';
+        args.forEach(function (value, i) {
+            if (MQuery.instanceOf(value, MQuery)) {
+                text += value.outerHtml();
+            }
+            else if (MQuery.typeOf(value, 'string')) {
+                text += value;
+            }
+        });
+        return text;
     };
     MQuery.hasParent = function (elem) {
         return !!elem.parentNode;
@@ -254,6 +266,14 @@ var MQuery = /** @class */ (function () {
         }
         return this.eachConcat(function (i, elem) { return elem.innerHTML; });
     };
+    MQuery.prototype.outerHtml = function (value) {
+        if (MQuery.isSet(value)) {
+            return this.each(function (i, elem) {
+                elem.outerHTML = value;
+            });
+        }
+        return this.eachConcat(function (i, elem) { return elem.outerHTML; });
+    };
     MQuery.prototype.simblings = function (selector) {
         var simblings = new MQuery([]);
         this.each(function (i, elem) {
@@ -291,14 +311,17 @@ var MQuery = /** @class */ (function () {
         });
         return next;
     };
-    MQuery.prototype.prepend = function (value) {
+    MQuery.prototype.prepend = function () {
+        var args = MQuery.toArray(arguments);
         return this.each(function (i, elem) {
-            elem.innerHTML = value + elem.innerHTML;
+            elem.innerHTML = MQuery.parseText(args) + elem.innerHTML;
         });
     };
-    MQuery.prototype.append = function (value) {
+    MQuery.prototype.append = function () {
+        var args = MQuery.toArray(arguments);
+        console.log(args);
         return this.each(function (i, elem) {
-            elem.innerHTML = elem.innerHTML + value;
+            elem.innerHTML = elem.innerHTML + MQuery.parseText(args);
         });
     };
     MQuery.prototype.val = function (value) {
