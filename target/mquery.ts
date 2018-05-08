@@ -100,18 +100,6 @@ class MQuery {
         return !!tmp.querySelector(selector);
     }
 
-    private static parseText(args: Array<any>): string {
-        let text = '';
-        args.forEach((value, i) => {
-            if (MQuery.instanceOf(value, MQuery)) {
-                text += value.outerHtml();
-            } else if (MQuery.typeOf(value, 'string')) {
-                text += value;
-            }
-        });
-        return text;
-    }
-
     private static hasParent(elem: Node): boolean {
         return !!elem.parentNode;
     }
@@ -345,18 +333,41 @@ class MQuery {
         return next;
     }
 
+    private static setChildren(rawChildren: any, nodeInsertFn, stringInsertFn): void {
+        rawChildren.forEach((children) => {
+            if (MQuery.instanceOf(children, MQuery)) {
+                children.each((i, child) => {
+                    if (MQuery.hasParent(child)) {
+                        stringInsertFn(child.outerHTML);
+                        return;
+                    }
+                    nodeInsertFn(child);
+                });
+                return;
+            }
+            if (MQuery.typeOf(children, 'node')) {
+                nodeInsertFn(children);
+                return;
+            }
+            stringInsertFn(children);
+        })
+    }
+
     public prepend(): MQuery {
-        let args = MQuery.toArray(arguments);
-        return this.each((i, elem) => {
-            elem.innerHTML = MQuery.parseText(args) + elem.innerHTML;
+        let rawChildren = MQuery.toArray(arguments).reverse();
+        return this.each((i, parent) => {
+            MQuery.setChildren(rawChildren,
+                (child) =>  parent.insertBefore(child, parent.firstChild),
+                (str) =>    parent.insertAdjacentHTML('afterbegin', str));
         });
     }
 
     public append(): MQuery {
-        let args = MQuery.toArray(arguments);
-        console.log(args);
-        return this.each((i, elem) => {
-            elem.innerHTML = elem.innerHTML + MQuery.parseText(args);
+        let rawChildren = MQuery.toArray(arguments);
+        return this.each((i, parent) => {
+            MQuery.setChildren(rawChildren,
+                (child) =>  parent.appendChild(child),
+                (str) =>    parent.insertAdjacentHTML('beforeend', str));
         });
     }
 
