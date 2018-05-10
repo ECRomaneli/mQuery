@@ -1,18 +1,19 @@
 type Callback = Function;
 
 class MQuery {
-    private static appName = 'mQuery';
+    private static APP_NAME = 'mQuery';
     private static DOC = document;
-    private length = 0;
+    private static AUX_ELEM = MQuery.DOC.createElement(`_${MQuery.APP_NAME}_`);
+    public length = 0;
     
-    constructor(obj?: any) {
+    constructor(selector?: any) {
         let nodes: Array<Node> | MQuery;
 
-        if (MQuery.typeOf(obj, 'function')) {
+        if (MQuery.typeOf(selector, 'function')) {
             nodes = MQuery.generateNodeArray();
-            this.ready(obj);
+            this.ready(selector);
         } else {
-            nodes = MQuery.generateNodeArray(obj);
+            nodes = MQuery.generateNodeArray(selector);
         }
 
         this.concat(nodes);
@@ -25,9 +26,9 @@ class MQuery {
     }
 
     private push(node: Node): MQuery {
-        if (!node || node[MQuery.appName] === this) {return this; }
+        if (!node || node[MQuery.APP_NAME] === this) {return this; }
         this[this.length++] = node;
-        node[MQuery.appName] = this;
+        node[MQuery.APP_NAME] = this;
         return this;
     }
 
@@ -45,51 +46,50 @@ class MQuery {
     } 
 
     private concat(nodes: any): MQuery {
-        nodes.forEach((node) => this.push(node));
+        nodes.forEach((node) => {this.push(node)});
         return this;
     }
 
     // UTILITIES
 
-    private static isSet(param): boolean {
+    public static isSet(param): boolean {
         return param !== undefined;
     }
 
-    private static typeOf(object: any, type: string): boolean {
+    public static typeOf(object: any, type: string): boolean {
         if (type === 'array') {return Array.isArray(object); }
         return type === (typeof object).toLowerCase();
     }
 
-    private static instanceOf(object: any, type: any): boolean {
+    public static instanceOf(object: any, type: any): boolean {
         return object instanceof type;
     }
     
-    private static getOrDefault(value: any, defaultValue: any): any {
+    public static getOrDefault(value: any, defaultValue: any): any {
         return MQuery.isSet(value) ? value : defaultValue;
     }
 
-    private static snakeToCamelCase(s: string): string {
+    public static snakeToCamelCase(s: string): string {
         return s.replace(/(\-\w)/g, (m) => m[1].toUpperCase());
     }
 
-    private static camelToSnakeCase(c: string): string {
-        return c.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase());
+    public static camelToSnakeCase(c: string): string {
+        return c.replace(/([A-Z])/g, (m) => `-${m.toLowerCase()}`);
     }
 
-    private static forEach(nodeList: NodeList, fn: Callback) { 
-        Array.prototype.forEach.call(nodeList, fn); 
+    public static forEach(list: any, fn: Callback) { 
+        Array.prototype.forEach.call(list, fn); 
     } 
 
-    private static forEachObj(obj: Object, fn: Callback): void {
-        Object.keys(obj).forEach((key) => fn(key, obj[key]));
+    public static forEachObj(obj: Object, fn: Callback): void {
+        Object.keys(obj).forEach((key) => {fn(key, obj[key])});
     }
 
     // MQUERY PROPERTIES
 
     private static codeToNodeList(code: string): NodeList {
-        let tmp = MQuery.DOC.createElement('_');
-        tmp.innerHTML = code;
-        return tmp.childNodes;
+        MQuery.AUX_ELEM.innerHTML = code;
+        return MQuery.AUX_ELEM.childNodes;
     }
 
     private static matches(node: any, selector: string): boolean {
@@ -101,7 +101,7 @@ class MQuery {
     }
 
     private static hasParent(elem: Node): boolean {
-        return !!elem.parentNode;
+        return elem.parentNode && elem.parentNode !== MQuery.AUX_ELEM;
     }
 
     private static generateNodeArray(obj?: any): Array<Node> | MQuery {
@@ -124,23 +124,49 @@ class MQuery {
         return MQuery.typeOf(obj, 'array') ? obj : [obj];
     }
 
+    public static setEventFunctions(events: Array<string>): void {
+        let fn = function (handler) {
+            if (!MQuery.isSet(handler)) {
+                return this.trigger(event);
+            }
+            return this.on(event, handler);
+        };
+        events.forEach((event) => {MQuery.prototype[event] = fn});
+    }
+
+    public static exportFunctions(target: any, fns: Array<string>, selector: any = []): void {
+        fns.forEach((fn) => {target[fn] = function () {
+            let mQuery = new MQuery(selector);
+            mQuery[fn].apply(mQuery, arguments);
+        }});
+    }
+
+    private static setChildren(rawChildren: any, nodeInsertFn, stringInsertFn): void {
+        rawChildren.forEach((children) => {
+            if (MQuery.instanceOf(children, MQuery)) {
+                children.each((i, child) => {
+                    if (MQuery.hasParent(child)) {
+                        stringInsertFn(child.outerHTML);
+                        return;
+                    }
+                    nodeInsertFn(child);
+                });
+                return;
+            }
+            if (MQuery.typeOf(children, 'node')) {
+                nodeInsertFn(children);
+                return;
+            }
+            stringInsertFn(children);
+        });
+    }
+
     private eachConcat(fnVal: Callback): string {
         let value = '';
         this.each((i, elem) => {
-            value += fnVal.apply(elem, [i, elem]) + ' ';
+            value += `${fnVal.apply(elem, [i, elem])} `;
         });
         return value.trim() || undefined;
-    }
-
-    public static defaultEvents(events: Array<string>): void {
-        events.forEach((event) => {
-            MQuery.prototype[event] = function (handler) {
-                if (!MQuery.isSet(handler)) {
-                    return this.trigger(event);
-                }
-                return this.on(event, handler);
-            }
-        });
     }
 
     public leaves(): MQuery {
@@ -164,7 +190,7 @@ class MQuery {
 
     public each(handler: Callback): MQuery {
         let count = 0;
-        this.forEach((node => handler.apply(node, [count++, node])));
+        this.forEach(node => {handler.apply(node, [count++, node])});
         return this;
     }
 
@@ -174,7 +200,7 @@ class MQuery {
         let events = event.split(' '),
             elems = arguments.length === 3 ? this.find(selectOrHandler) : this;
         elems.each((i, elem) => {
-            events.forEach((event) => elem.addEventListener(event, handler, true));
+            events.forEach((event) => {elem.addEventListener(event, handler, true)});
         });
         return this;
     }
@@ -185,7 +211,7 @@ class MQuery {
         let events = event.split(' '),
             elems = arguments.length === 3 ? this.find(selectOrHandler) : this;
         elems.each((i, elem) => {
-            events.forEach((event) => elem.removeEventListener(event, handler, true));
+            events.forEach((event) => {elem.removeEventListener(event, handler, true)});
         });
         return this;
     }
@@ -221,6 +247,14 @@ class MQuery {
         return parents;
     }
 
+    public load(url: string, complete?: any, error?: any): MQuery {
+        let fetchURL = fetch(url).then((data) => data.text());
+        fetchURL.then((text) => {this.html(text); });
+        MQuery.isSet(complete) && fetchURL.then(complete);
+        MQuery.isSet(error) && fetchURL.catch(error);
+        return this;
+    }
+
     public trigger(event: string, data?: Object): MQuery {
         return this.each((i, elem) => {
             if (event === 'focus') {
@@ -253,7 +287,7 @@ class MQuery {
 
     public css(nameOrJSON: any, value?: string): MQuery | string {
         if (!MQuery.typeOf(nameOrJSON, 'string')) {
-            MQuery.forEachObj(nameOrJSON, (key, value) => this.css(key, value));
+            MQuery.forEachObj(nameOrJSON, (key, value) => {this.css(key, value)});
             return this;
         }
 
@@ -279,7 +313,7 @@ class MQuery {
         return this.eachConcat((i, elem) => elem.textContent);
     }
 
-    public html(value?: string): MQuery | string {
+    public html(value?: any): MQuery | string {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
                 elem.innerHTML = value;
@@ -333,32 +367,12 @@ class MQuery {
         return next;
     }
 
-    private static setChildren(rawChildren: any, nodeInsertFn, stringInsertFn): void {
-        rawChildren.forEach((children) => {
-            if (MQuery.instanceOf(children, MQuery)) {
-                children.each((i, child) => {
-                    if (MQuery.hasParent(child)) {
-                        stringInsertFn(child.outerHTML);
-                        return;
-                    }
-                    nodeInsertFn(child);
-                });
-                return;
-            }
-            if (MQuery.typeOf(children, 'node')) {
-                nodeInsertFn(children);
-                return;
-            }
-            stringInsertFn(children);
-        })
-    }
-
     public prepend(): MQuery {
         let rawChildren = MQuery.toArray(arguments).reverse();
         return this.each((i, parent) => {
             MQuery.setChildren(rawChildren,
-                (child) =>  parent.insertBefore(child, parent.firstChild),
-                (str) =>    parent.insertAdjacentHTML('afterbegin', str));
+                (child) =>  {parent.insertBefore(child, parent.firstChild)},
+                (str) =>    {parent.insertAdjacentHTML('afterbegin', str)});
         });
     }
 
@@ -366,9 +380,16 @@ class MQuery {
         let rawChildren = MQuery.toArray(arguments);
         return this.each((i, parent) => {
             MQuery.setChildren(rawChildren,
-                (child) =>  parent.appendChild(child),
-                (str) =>    parent.insertAdjacentHTML('beforeend', str));
+                (child) =>  {parent.appendChild(child)},
+                (str) =>    {parent.insertAdjacentHTML('beforeend', str)});
         });
+    }
+
+    public data(attr: string, value?: string): MQuery | string {
+        if (!MQuery.isSet(value)) {
+            return this.attr(`data-${attr}`);
+        }
+        return this.attr(`data-${attr}`, value);
     }
 
     public val(value?: string): MQuery | string {
@@ -379,11 +400,11 @@ class MQuery {
     }
 
     public addClass(className: string): MQuery {
-        return this.each((i, elem) => elem.classList.add(className));
+        return this.each((i, elem) => {elem.classList.add(className)});
     }
 
     public removeClass(className: string): MQuery {
-        return this.each((i, elem) => elem.classList.remove(className));
+        return this.each((i, elem) => {elem.classList.remove(className)});
     }
 
     public hasClass(className: string): boolean {
@@ -391,9 +412,9 @@ class MQuery {
     }
 
     public toggleClass(className: string): MQuery {
-        return this.each((i, elem) => elem.classList.toggle(className));
+        return this.each((i, elem) => {elem.classList.toggle(className)});
     }
 }
 
-let mQuery = (ref?: any) => new MQuery(ref), m$ = mQuery;
-mQuery['ready'] = mQuery().ready;
+var m$ = (ref?: any) => new MQuery(ref), mQuery = m$;
+MQuery.exportFunctions(m$, ['ready', 'load']);
