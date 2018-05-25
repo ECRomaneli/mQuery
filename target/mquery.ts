@@ -1,42 +1,73 @@
 type Callback = Function;
 
 class MQuery {
-    private static appName = 'mQuery';
-    private static DOC = document;
-    private length = 0;
+    /**
+     * CONSTANTS AND PROPERTIES
+     */
+    private static readonly APP_NAME = 'mQuery';
+    private static readonly DOC = document;
+    private static readonly AUX_ELEM = MQuery.DOC.createElement(`_${MQuery.APP_NAME}_`);
+    public static readonly fn = MQuery.prototype;
+    public length = 0;
     
-    constructor(obj?: any) {
+    /**
+     * Default constructor
+     * @param selector MQuery | NodeList | Node | QuerySelector | HTML String
+     */
+    constructor(selector?: any) {
         let nodes: Array<Node> | MQuery;
 
-        if (MQuery.typeOf(obj, 'function')) {
+        if (MQuery.typeOf(selector, 'function')) {
             nodes = MQuery.generateNodeArray();
-            this.ready(obj);
+            this.ready(selector);
         } else {
-            nodes = MQuery.generateNodeArray(obj);
+            nodes = MQuery.generateNodeArray(selector);
         }
 
         this.concat(nodes);
     }
 
-    // ARRAY PROPERTIES
-    
-    private static toArray(nodes: NodeList): Array<Node> {
-        return [].slice.call(nodes || []);
+    // =================== ARRAY PROPERTIES =================== //
+
+    /**
+     * Transform object parameter to Array
+     * @param obj object must be array compatible
+     * @return Array
+     */
+    private static toArray(obj: any): Array<any> {
+        return [].slice.call(obj || []);
     }
 
+    /**
+     * Insert Node on internal list
+     * @param node Node element
+     * @return MQuery instance
+     */
     private push(node: Node): MQuery {
-        if (!node || node[MQuery.appName] === this) {return this; }
+        // Verify if node has been inserted inside this list before
+        if (!node || node[MQuery.APP_NAME] === this) {return this; }
         this[this.length++] = node;
-        node[MQuery.appName] = this;
+        // Add list reference to the node
+        node[MQuery.APP_NAME] = this;
         return this;
     }
 
+    /**
+     * Each listed elements on position ascendant order
+     * @param fn {elem, index, list} Callback for each elements
+     * @return void
+     */
     private forEach(fn: Callback): void {
         for (let i = 0; i < this.length; ++i) {
             fn(this[i], i, this);
         }
     }
 
+    /**
+     * Each listed elements on position descendant order at found a positive return
+     * @param fn {elem, index, list} Callback for each elements
+     * @return true if some iteration return true, or false if not
+     */
     private some(fn: Callback): boolean { 
         for (let i = this.length - 1; i >= 0; --i) { 
             if (fn(this[i], i, this)) {return true; } 
@@ -44,97 +75,165 @@ class MQuery {
         return false; 
     } 
 
+    /**
+     * Concat array-like elements inside current object 
+     * @param nodes MQuery | Array[Node]
+     * @return MQuery instance
+     */
     private concat(nodes: any): MQuery {
-        nodes.forEach((node) => this.push(node));
+        nodes.forEach((node) => {this.push(node)});
         return this;
     }
 
-    // UTILITIES
+    // ====================== UTILITIES ======================= //
 
-    private static isSet(param): boolean {
+    /**
+     * Verify if parameter is set (comparing with undefined)
+     * NOTE: [], 0 and "" will return true 
+     * @param param parameter to be verified
+     * @return if object is setted or not
+     */
+    public static isSet(param): boolean {
         return param !== undefined;
     }
 
-    private static typeOf(object: any, type: string): boolean {
-        if (type === 'array') {return Array.isArray(object); }
-        return type === (typeof object).toLowerCase();
+    /**
+     * Verify the type of object passed and compare
+     * @param object object to be verified
+     * @param type type of object
+     * @return if object is of passed type or not
+     */
+    public static typeOf(object: any, types: string): boolean {
+        return types.split(' ').some((type) => {
+            if (type === 'array') {return Array.isArray(object); }
+            return type === (typeof object).toLowerCase();
+        });
     }
 
-    private static instanceOf(object: any, type: any): boolean {
+    /**
+     * Verify if object is instance of type passed
+     * @param object object to be verified
+     * @param type type of object
+     * @return if object is instance of type or not
+     */
+    public static instanceOf(object: any, type: any): boolean {
         return object instanceof type;
     }
     
-    private static getOrDefault(value: any, defaultValue: any): any {
+    /**
+     * Get the value or, if not exists, the default value
+     * @param value value
+     * @param defaultValue default value
+     * @return value if exists or default value if not
+     */
+    public static getOrDefault(value: any, defaultValue: any): any {
         return MQuery.isSet(value) ? value : defaultValue;
     }
 
-    private static snakeToCamelCase(s: string): string {
+    /**
+     * Transform snake case string to camel case
+     * @param s snake case string
+     * @return camel case string
+     */
+    public static snakeToCamelCase(s: string): string {
         return s.replace(/(\-\w)/g, (m) => m[1].toUpperCase());
     }
 
-    private static camelToSnakeCase(c: string): string {
-        return c.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase());
+    /**
+     * Transform camel case string to snake case
+     * @param c camel case string
+     * @return snake case string
+     */
+    public static camelToSnakeCase(c: string): string {
+        return c.replace(/([A-Z])/g, (m) => `-${m.toLowerCase()}`);
     }
 
-    private static forEach(nodeList: NodeList, fn: Callback) { 
-        Array.prototype.forEach.call(nodeList, fn); 
+    /**
+     * Each elements of the list calling forEach Array Function
+     * @param list List of elements
+     * @param fn {elem} Callback for each elements
+     * @return void
+     */
+    public static forEach(list: any, fn: Callback): void { 
+        Array.prototype.forEach.call(list, fn); 
     } 
 
-    private static forEachObj(obj: Object, fn: Callback): void {
-        Object.keys(obj).forEach((key) => fn(key, obj[key]));
+    /**
+     * [HEAVY] Each object attributes and values
+     * @param obj Object to each
+     * @param fn {key, value} Callback for each elements
+     * @return void
+     */
+    public static forEachObj(obj: Object, fn: Callback): void {
+        Object.keys(obj).forEach((key) => {fn(key, obj[key])});
     }
 
-    // MQUERY PROPERTIES
+    // ================== MQUERY PROPERTIES =================== //
 
+    /**
+     * Transform HTML/XML code to list of elements
+     * @param code HTML/XML code
+     * @return NodeList
+     */
     private static codeToNodeList(code: string): NodeList {
-        let tmp = MQuery.DOC.createElement('_');
-        tmp.innerHTML = code;
-        return tmp.childNodes;
+        MQuery.AUX_ELEM.innerHTML = code;
+        return MQuery.AUX_ELEM.childNodes;
     }
 
-    private static matches(node: any, selector: string): boolean {
+    /**
+     * Verify if element matches selector
+     * @param elem element to be verified
+     * @param selector querySelector
+     * @return true if element matches selector, or false if not
+     */
+    private static matches(elem: any, selector: string): boolean {
         if (!MQuery.isSet(selector)) {return true; }
-        if (node.matches) {return node.matches(selector); }
-        let tmp = MQuery.DOC.createElement('_');
-        tmp.appendChild(node);
-        return !!tmp.querySelector(selector);
+        if (elem.matches) {return elem.matches(selector); }
+        MQuery.AUX_ELEM.innerHTML = '';
+        MQuery.AUX_ELEM.appendChild(elem);
+        return !!MQuery.AUX_ELEM.querySelector(selector);
     }
 
+    /**
+     * Verify if element has parent
+     * @param elem elemet to be verified
+     * @return true if has parent, or false if not 
+     */
     private static hasParent(elem: Node): boolean {
-        return !!elem.parentNode;
+        return elem.parentNode && elem.parentNode !== MQuery.AUX_ELEM;
     }
 
-    private static generateNodeArray(obj?: any): Array<Node> | MQuery {
-        if (!MQuery.isSet(obj)) {
-            return [MQuery.DOC];
-        }
+    /**
+     * Generate list of elements to concat
+     * @param selector MQuery | NodeList | Node | QuerySelector | HTML String
+     * @return Array<Node>|MQuery
+     */
+    private static generateNodeArray(selector?: any): Array<Node> | MQuery {
+        if (!MQuery.isSet(selector)) {return []; }
 
-        if (MQuery.typeOf(obj, 'string')) {
+        if (MQuery.typeOf(selector, 'string')) {
             try {
-                return MQuery.toArray(MQuery.DOC.querySelectorAll(obj));
+                return MQuery.toArray(MQuery.DOC.querySelectorAll(selector));
             } catch (e) {
-                return MQuery.toArray(MQuery.codeToNodeList(obj));
+                return MQuery.toArray(MQuery.codeToNodeList(selector));
             }
         }
 
-        if (MQuery.instanceOf(obj, MQuery)) {
-            return obj;
+        if (MQuery.typeOf(selector, 'array') || MQuery.instanceOf(selector, MQuery)) {
+            return selector;
         }
 
-        return MQuery.typeOf(obj, 'array') ? obj : [obj];
+        return [selector];
     }
 
-    private eachConcat(fnVal: Callback): string {
-        let value = '';
-        this.each((i, elem) => {
-            value += fnVal.apply(elem, [i, elem]) + ' ';
-        });
-        return value.trim() || undefined;
-    }
-
-    public static defaultEvents(events: Array<string>): void {
+    /**
+     * Set event shorthand methods
+     * @param events Array<string> Example: ['click', 'focus', 'mouseenter'] enable this shorthand methods.
+     * @return void
+     */
+    public static setEventsShorthand(events: Array<string>): void {
         events.forEach((event) => {
-            MQuery.prototype[event] = function (handler) {
+            MQuery.fn[event] = function (handler) {
                 if (!MQuery.isSet(handler)) {
                     return this.trigger(event);
                 }
@@ -143,6 +242,66 @@ class MQuery {
         });
     }
 
+    /**
+     * Export automatic mQuery instance methods to objects.
+     * Ex.: MQuery.export(foo, ['click'], 'button') enables foo.click() trigger click on button tags
+     * @param target object will be receive the method
+     * @param fns array of functions will be exported
+     * @param selector QuerySelector for mQuery instance
+     * @return void
+     */
+    public static export(target: any, fns: Array<string>, selector: any = []): void {
+        fns.forEach((fn) => {target[fn] = function () {
+            let mQuery = new MQuery(selector);
+            mQuery[fn].apply(mQuery, arguments);
+        }});
+    }
+
+    /**
+     * Generic child insertion
+     * @param rawChildren array<MQuery|Node|string> children array
+     * @param nodeInsertFn function responsible to add node child
+     * @param stringInsertFn function responsible to add string child
+     * @return void
+     */
+    private static setChildren(rawChildren: any, nodeInsertFn, stringInsertFn): void {
+        rawChildren.forEach((children) => {
+            if (MQuery.instanceOf(children, MQuery)) {
+                children.each((i, child) => {
+                    if (MQuery.hasParent(child)) {
+                        return stringInsertFn(child.outerHTML);
+                    }
+                    nodeInsertFn(child);
+                });
+                return;
+            }
+            if (MQuery.typeOf(children, 'array')) {
+                return this.setChildren(children, nodeInsertFn, stringInsertFn);
+            }
+            if (MQuery.typeOf(children, 'string')) {
+                return stringInsertFn(children);
+            }
+            return nodeInsertFn(children);
+        });
+    }
+
+    /**
+     * Shorthand to concat all nodes quered values with space between them
+     * @param fnVal function responsible to generate value
+     * @return string with values concated
+     */
+    private eachConcat(fnVal: Callback): string {
+        let value = '';
+        this.each((i, elem) => {
+            value += `${fnVal.apply(elem, [i, elem])} `;
+        });
+        return value.trim() || undefined;
+    }
+
+    /**
+     * Return all leaf nodes (nodes without child)
+     * @return MQuery instance
+     */
     public leaves(): MQuery {
         let leaves = new MQuery([]);
         this.each((i, elem) => {
@@ -157,39 +316,76 @@ class MQuery {
         return leaves;
     }
 
+    /**
+     * Called after DOM content finish load
+     * @param handler event listener
+     * @return MQuery instance
+     */
     public ready(handler: EventListener): MQuery {
         MQuery.DOC.addEventListener('DOMContentLoaded', handler, true);
         return this;
     }
 
+    /**
+     * Each quered nodes
+     * @param handler callback to iterate nodes
+     * @return MQuery instance
+     */
     public each(handler: Callback): MQuery {
         let count = 0;
-        this.forEach((node => handler.apply(node, [count++, node])));
+        this.forEach(node => {handler.apply(node, [count++, node])});
         return this;
     }
 
+    /**
+     * Attach listeners on events passed by paramenter
+     * @param event events separated by space
+     * @param selectOrHandler [OPTIONAL] selector to query before attach
+     * @param handler event listener
+     * @return MQuery instance
+     */
     public on(event: string, selectOrHandler: any, handler?: EventListener): MQuery {
-        if (arguments.length === 2) {let handler = selectOrHandler; }
+        if (arguments.length === 2) {handler = selectOrHandler; }
 
         let events = event.split(' '),
             elems = arguments.length === 3 ? this.find(selectOrHandler) : this;
         elems.each((i, elem) => {
-            events.forEach((event) => elem.addEventListener(event, handler, true));
+            events.forEach((event) => {elem.addEventListener(event, handler, true)});
         });
         return this;
     }
 
+    /**
+     * Detach listeners on events passed by paramenter
+     * @param event events separated by space
+     * @param selectOrHandler [OPTIONAL] selector to query before detach
+     * @param handler event listener
+     * @return MQuery instance
+     */
     public off(event: string, selectOrHandler: any, handler: EventListener): MQuery {
         if (arguments.length === 2) {let handler = selectOrHandler; }
 
         let events = event.split(' '),
             elems = arguments.length === 3 ? this.find(selectOrHandler) : this;
         elems.each((i, elem) => {
-            events.forEach((event) => elem.removeEventListener(event, handler, true));
+            events.forEach((event) => {elem.removeEventListener(event, handler, true)});
         });
         return this;
     }
 
+    public is(selector: string): MQuery {
+        let nodes = new MQuery([]);
+        this.each((i, elem) => {
+            if (MQuery.matches(elem, selector)) {nodes.push(elem); }
+        });
+        return nodes;
+    }
+
+    /**
+     * Find children elements by selector
+     * @param selector query selector
+     * @return MQuery instance
+     */
     public find(selector: string): MQuery {
         let nodes = new MQuery([]), concat;
 
@@ -202,7 +398,12 @@ class MQuery {
 
         return nodes;
     }
-	
+    
+    /**
+     * Get parent node
+     * @param selector [OPTIONAL] parent's selector
+     * @return MQuery instance
+     */
 	public parent(selector?: string): MQuery {
         let parents = new MQuery([]);
 
@@ -210,9 +411,7 @@ class MQuery {
             if (!MQuery.hasParent(elem)) {return false; }
             elem = elem.parentNode;
 
-            if (!MQuery.matches(elem, selector)) {
-                return false;
-            }
+            if (!MQuery.matches(elem, selector)) {return false; }
 
             parents.push(elem);
             return true;
@@ -221,6 +420,23 @@ class MQuery {
         return parents;
     }
 
+    /**
+     * [EXPERIMENTAL] Load data inside quered elements
+     */
+    public load(url: string, complete?: any, error?: any): MQuery {
+        let fetchURL = fetch(url).then((data) => data.text());
+        fetchURL.then((text) => {this.html(text); });
+        MQuery.isSet(complete) && fetchURL.then(complete);
+        MQuery.isSet(error) && fetchURL.catch(error);
+        return this;
+    }
+
+    /**
+     * Trigger events
+     * @param event event name
+     * @param data data to be passed to event
+     * @return MQuery instance
+     */
     public trigger(event: string, data?: Object): MQuery {
         return this.each((i, elem) => {
             if (event === 'focus') {
@@ -238,22 +454,40 @@ class MQuery {
         });
     }
 
-    public attr(name: string, value?: string): MQuery | string {
+    /**
+     * Get/Set attribute on quered nodes
+     * @param attr attribute name
+     * @param value [ONLY TO SET] attribute value
+     * @return MQuery instance if setting a value, or string if getting
+     */
+    public attr(attr: string, value?: string): MQuery | string {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
-                if (MQuery.isSet(elem[name])) {
-                    elem[name] = value;
+                if (MQuery.isSet(elem[attr])) {
+                    elem[attr] = value;
                     return;
                 }
-                elem.setAttribute(name, value);
+                elem.setAttribute(attr, value);
             });
         }
-        return this.eachConcat((i, elem) => elem.getAttribute(name));
+        return this.eachConcat((i, elem) => elem.getAttribute(attr));
     }
 
+    public removeAttr(attr: string): MQuery {
+        return this.each((i, elem) => {
+            elem.removeAttribute(attr);
+        });
+    }
+
+    /**
+     * Get/Set style on quered nodes
+     * @param nameOrJSON name of the style or [ONLY TO SET] JSON with styles and values
+     * @param value [ONLY TO SET] value of the style
+     * @return MQuery instance if setting a value, or string if getting
+     */
     public css(nameOrJSON: any, value?: string): MQuery | string {
         if (!MQuery.typeOf(nameOrJSON, 'string')) {
-            MQuery.forEachObj(nameOrJSON, (key, value) => this.css(key, value));
+            MQuery.forEachObj(nameOrJSON, (key, value) => {this.css(key, value)});
             return this;
         }
 
@@ -270,6 +504,11 @@ class MQuery {
         });
     }
 
+    /**
+     * Get/Set inner text on quered nodes (for active HTML code, use .html())
+     * @param value text to be added
+     * @return MQuery instance if setting a value, or string if getting
+     */
     public text(value?: string): MQuery | string {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
@@ -279,7 +518,12 @@ class MQuery {
         return this.eachConcat((i, elem) => elem.textContent);
     }
 
-    public html(value?: string): MQuery | string {
+    /**
+     * Get/Set inner html on quered nodes
+     * @param value [ONLY TO SET] html code to be added
+     * @return MQuery instance if setting a value, or string if getting
+     */
+    public html(value?: any): MQuery | string {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
                 elem.innerHTML = value;
@@ -288,18 +532,56 @@ class MQuery {
         return this.eachConcat((i, elem) => elem.innerHTML);
     }
 
-    public simblings(selector?: string): MQuery {
-        let simblings = new MQuery([]);
+    /**
+     * Get/Set outer html on quered nodes
+     * @param value [ONLY TO SET] html code to replace
+     * @return MQuery instance if setting a value, or string if getting
+     */
+    public outerHtml(value?: string): MQuery | string {
+        if (MQuery.isSet(value)) {
+            return this.each((i, elem) => {
+                elem.outerHTML = value;
+            });
+        }
+        return this.eachConcat((i, elem) => elem.outerHTML);
+    }
+
+    public children(selector?: string): MQuery {
+        let nodes = new MQuery([]);
+        this.each((i, elem) => {nodes.concat(elem.childNodes); });
+        return selector ? nodes.is(selector) : nodes;
+    }
+
+    public first(): MQuery {
+        return new MQuery(this.length ? this[0] : []);
+    }
+
+    public last(): MQuery {
+        return new MQuery(this.length ? this[this.length - 1] : []);
+    }
+
+    /**
+     * Get all siblings
+     * @param selector [OPTIONAL] filter siblings by selector
+     * @return MQuery instance
+     */
+    public siblings(selector?: string): MQuery {
+        let siblings = new MQuery([]);
         this.each((i, elem) => {
             MQuery.forEach(elem.parentNode.children, (child) => {
                 if (child === elem) {return false; }
                 if (!MQuery.matches(child, selector)) {return false; }
-                simblings.push(child);
+                siblings.push(child);
             });
         });
-        return simblings;
+        return siblings;
     }
 
+    /**
+     * Get previous sibling
+     * @param selector [OPTIONAL] get previous sibling matches selector
+     * @return MQuery instance
+     */
     public prev(selector?: string): MQuery {
         let prev = new MQuery([]), prevElem;
         this.each((i, elem) => {
@@ -312,6 +594,11 @@ class MQuery {
         return prev;
     }
 
+    /**
+     * Get next sibling
+     * @param selector [OPTIONAL] get next sibling matches selector
+     * @return MQuery instance
+     */
     public next(selector?: string): MQuery {
         let next = new MQuery([]), nextElem;
         this.each((i, elem) => {
@@ -324,18 +611,52 @@ class MQuery {
         return next;
     }
 
-    public prepend(value: string): MQuery {
-        return this.each((i, elem) => {
-            elem.innerHTML = value + elem.innerHTML;
+    /**
+     * Add elements before first child
+     * @param elem1... MQuery|Node|element
+     * @return MQuery instance
+     */
+    public prepend(): MQuery {
+        let rawChildren = MQuery.toArray(arguments).reverse();
+        return this.each((i, parent) => {
+            MQuery.setChildren(rawChildren,
+                (child) =>  {parent.insertBefore(child, parent.firstChild)},
+                (str) =>    {parent.insertAdjacentHTML('afterbegin', str)});
         });
     }
 
-    public append(value: string): MQuery {
-        return this.each((i, elem) => {
-            elem.innerHTML = elem.innerHTML + value;
+    /**
+     * Add elements after last child
+     * @param elem1... MQuery|Node
+     * @return MQuery instance
+     */
+    public append(): MQuery {
+        let rawChildren = MQuery.toArray(arguments);
+        return this.each((i, parent) => {
+            MQuery.setChildren(rawChildren,
+                (child) =>  {parent.appendChild(child)},
+                (str) =>    {parent.insertAdjacentHTML('beforeend', str)});
         });
     }
 
+    /**
+     * Get/Set 'data' attribute
+     * @param attr attribute name
+     * @param value [ONLY TO SET] attribute value
+     * @return MQuery instance if setting a value, or string if getting
+     */
+    public data(attr: string, value?: string): MQuery | string {
+        if (!MQuery.isSet(value)) {
+            return this.attr(`data-${attr}`);
+        }
+        return this.attr(`data-${attr}`, value);
+    }
+
+    /**
+     * Get/Set input value
+     * @param value [ONLY TO SET] input value
+     * @return MQuery instance if setting a value, or string if getting
+     */
     public val(value?: string): MQuery | string {
         if (!MQuery.isSet(value)) {
             return this.attr('value');
@@ -343,22 +664,75 @@ class MQuery {
         return this.attr('value', value);
     }
 
+    /**
+     * Add class on quered nodes
+     * @param className class name
+     * @return MQuery instance
+     */
     public addClass(className: string): MQuery {
-        return this.each((i, elem) => elem.classList.add(className));
+        return this.each((i, elem) => {elem.classList.add(className)});
     }
 
+    /**
+     * Remove class on quered nodes
+     * @param className class name
+     * @return MQuery instance
+     */
     public removeClass(className: string): MQuery {
-        return this.each((i, elem) => elem.classList.remove(className));
+        return this.each((i, elem) => {elem.classList.remove(className)});
     }
 
+    /**
+     * Return if some quered node has the class
+     * @param className class name
+     * @return true, if some quered node has the class, and false if not.
+     */
     public hasClass(className: string): boolean {
         return this.some((elem) => elem.classList.contains(className));
     }
 
+    /**
+     * Toggle class on quered nodes
+     * @param className class name
+     * @return MQuery instance
+     */
     public toggleClass(className: string): MQuery {
-        return this.each((i, elem) => elem.classList.toggle(className));
+        return this.each((i, elem) => {elem.classList.toggle(className)});
+    }
+
+    /**
+     * Remove nodes on MQuery array
+     * @param selector [OPTIONAL] query selector
+     */
+    public remove(selector?: string): MQuery {
+        let nodes = new MQuery();
+        this.each((i, elem) => {
+            if (MQuery.matches(elem, selector)) {
+                elem.outerHTML = '';
+                return;
+            }
+            nodes.push(elem);
+        });
+        return nodes;
+    }
+
+    /**
+     * Remove all childs (including texts)
+     */
+    public empty(): MQuery {
+        return this.each((i, elem) => {elem.innerHTML = ''});
+    }
+
+    public width(): string {
+        if (!this.length) {return undefined; }
+        return this[0].clientWidth;
+    }
+
+    public height(): string {
+        if (!this.length) {return undefined; }
+        return this[0].clientHeight;
     }
 }
 
-let mQuery = (ref?: any) => new MQuery(ref), m$ = mQuery;
-mQuery['ready'] = mQuery().ready;
+const m$ = (ref?: any) => new MQuery(ref), mQuery = m$;
+MQuery.export(m$, ['ready', 'load']);
