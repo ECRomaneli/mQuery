@@ -146,7 +146,9 @@ var MQuery = /** @class */ (function () {
      * @return void
      */
     MQuery.forEachObj = function (obj, fn) {
-        Object.keys(obj).forEach(function (key) { fn(key, obj[key]); });
+        for (var key in obj) {
+            fn(key, obj[key]);
+        }
     };
     // ================== MQUERY PROPERTIES =================== //
     /**
@@ -438,13 +440,17 @@ var MQuery = /** @class */ (function () {
         if (MQuery.isSet(value)) {
             return this.each(function (i, elem) {
                 if (MQuery.isSet(elem[attr])) {
-                    elem[attr] = value;
-                    return;
+                    return elem[attr] = value;
                 }
                 elem.setAttribute(attr, value);
             });
         }
-        return this.eachConcat(function (i, elem) { return elem.getAttribute(attr); });
+        return this.eachConcat(function (i, elem) {
+            if (MQuery.isSet(elem[attr])) {
+                return elem[attr];
+            }
+            return elem.getAttribute(attr);
+        });
     };
     MQuery.prototype.removeAttr = function (attr) {
         return this.each(function (i, elem) {
