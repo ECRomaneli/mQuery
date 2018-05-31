@@ -165,7 +165,7 @@ class MQuery {
      * @return void
      */
     public static forEachObj(obj: Object, fn: Callback): void {
-        Object.keys(obj).forEach((key) => {fn(key, obj[key])});
+        for (let key in obj) {fn(key, obj[key]); }
     }
 
     // ================== MQUERY PROPERTIES =================== //
@@ -464,13 +464,18 @@ class MQuery {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
                 if (MQuery.isSet(elem[attr])) {
-                    elem[attr] = value;
-                    return;
+                    return elem[attr] = value;
                 }
                 elem.setAttribute(attr, value);
             });
         }
-        return this.eachConcat((i, elem) => elem.getAttribute(attr));
+
+        return this.eachConcat((i, elem) => {
+            if (MQuery.isSet(elem[attr])) {
+                return elem[attr];
+            }
+            return elem.getAttribute(attr);
+        });
     }
 
     public removeAttr(attr: string): MQuery {
