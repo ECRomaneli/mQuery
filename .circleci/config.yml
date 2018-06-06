@@ -9,11 +9,17 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Installing node typescript tools and yarn...
+          name: Installing dependencies...
           command: |
             sudo apt install -y node-typescript && \
-            sudo npm install -g uglify-js yarn
+            sudo npm install -g uglify-js && \
+            npm i --only=dev
       - run:
           name: Building mQuery...
           command: |
-            cd ~/mQuery && bash ./build.sh && node ./test/test.js
+            bash ./build.sh && \
+            node ./test/test.js
+      - run:
+          name: Testing...
+          command: |
+            node ./test/test.js
