@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 class MQuery {
     /**
      * Default constructor.
-     * @param selector MQuery | NodeList | HTMLElement | QuerySelector | HTML String
+     * @param selector MQuery | NodeList | Node | Array<Node> | QuerySelector | HTML String
      */
     constructor(selector) {
         this.length = 0;
@@ -431,12 +431,6 @@ class MQuery {
             elem.dispatchEvent(customEvent);
         });
     }
-    /**
-     * Get/Set attribute on quered elements.
-     * @param attr attribute name
-     * @param value [ONLY TO SET] attribute value
-     * @return MQuery instance if setting a value, or string if getting
-     */
     attr(attr, value) {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
@@ -459,12 +453,6 @@ class MQuery {
             elem.removeAttribute(attr);
         });
     }
-    /**
-     * Get/Set style on quered elements.
-     * @param nameOrJSON name of the style or [ONLY TO SET] JSON with styles and values
-     * @param value [ONLY TO SET] value of the style
-     * @return MQuery instance if setting a value, or string if getting
-     */
     css(nameOrJSON, value) {
         if (!MQuery.typeOf(nameOrJSON, 'string')) {
             MQuery.forEachObj(nameOrJSON, (key, value) => { this.css(key, value); });
@@ -480,11 +468,6 @@ class MQuery {
             return elem.style[name];
         });
     }
-    /**
-     * Get/Set inner text on quered elements (for active HTML code, use .html()).
-     * @param value text to be added
-     * @return MQuery instance if setting a value, or string if getting
-     */
     text(value) {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
@@ -493,11 +476,6 @@ class MQuery {
         }
         return this.eachConcat((i, elem) => elem.textContent);
     }
-    /**
-     * Get/Set inner html on quered elements.
-     * @param value [ONLY TO SET] html code to be added
-     * @return MQuery instance if setting a value, or string if getting
-     */
     html(value) {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
@@ -506,11 +484,6 @@ class MQuery {
         }
         return this.eachConcat((i, elem) => elem.innerHTML);
     }
-    /**
-     * Get/Set outer html on quered elements.
-     * @param value [ONLY TO SET] html code to replace
-     * @return MQuery instance if setting a value, or string if getting
-     */
     outerHtml(value) {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
@@ -614,23 +587,12 @@ class MQuery {
             MQuery.setChildren(rawChildren, (child) => { parent.appendChild(child); }, (str) => { parent.insertAdjacentHTML('beforeend', str); });
         });
     }
-    /**
-     * Get/Set 'data' attribute.
-     * @param attr attribute name
-     * @param value [ONLY TO SET] attribute value
-     * @return MQuery instance if setting a value, or string if getting
-     */
     data(attr, value) {
         if (!MQuery.isSet(value)) {
             return this.attr(`data-${attr}`);
         }
         return this.attr(`data-${attr}`, value);
     }
-    /**
-     * Get/Set input value.
-     * @param value [ONLY TO SET] input value
-     * @return MQuery instance if setting a value, or string if getting
-     */
     val(value) {
         if (!MQuery.isSet(value)) {
             return this.attr('value');

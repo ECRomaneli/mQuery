@@ -17,7 +17,7 @@ export declare class MQuery {
     length: number;
     /**
      * Default constructor.
-     * @param selector MQuery | NodeList | HTMLElement | QuerySelector | HTML String
+     * @param selector MQuery | NodeList | Node | Array<Node> | QuerySelector | HTML String
      */
     constructor(selector?: any);
     /**
@@ -221,7 +221,8 @@ export declare class MQuery {
      * @param value [ONLY TO SET] attribute value
      * @return MQuery instance if setting a value, or string if getting
      */
-    attr(attr: string, value?: string): MQuery | string;
+    attr(attr: string): string;
+    attr(attr: string, value: string): MQuery;
     removeAttr(attr: string): MQuery;
     /**
      * Get/Set style on quered elements.
@@ -229,25 +230,30 @@ export declare class MQuery {
      * @param value [ONLY TO SET] value of the style
      * @return MQuery instance if setting a value, or string if getting
      */
-    css(nameOrJSON: any, value?: string): MQuery | string;
+    css(vame: string): string;
+    css(json: Object): MQuery;
+    css(name: string, value: string | number): MQuery;
     /**
      * Get/Set inner text on quered elements (for active HTML code, use .html()).
      * @param value text to be added
      * @return MQuery instance if setting a value, or string if getting
      */
-    text(value?: string): MQuery | string;
+    text(): string;
+    text(value: string): MQuery;
     /**
      * Get/Set inner html on quered elements.
      * @param value [ONLY TO SET] html code to be added
      * @return MQuery instance if setting a value, or string if getting
      */
-    html(value?: any): MQuery | string;
+    html(): string;
+    html(value: string): MQuery;
     /**
      * Get/Set outer html on quered elements.
      * @param value [ONLY TO SET] html code to replace
      * @return MQuery instance if setting a value, or string if getting
      */
-    outerHtml(value?: string): MQuery | string;
+    outerHtml(): string;
+    outerHtml(value: string): MQuery;
     /**
      * Return children of all elements on list.
      * @param selector [OPTIONAL] match children before return
@@ -297,13 +303,15 @@ export declare class MQuery {
      * @param value [ONLY TO SET] attribute value
      * @return MQuery instance if setting a value, or string if getting
      */
-    data(attr: string, value?: string): MQuery | string;
+    data(attr: string): string;
+    data(attr: string, value: string): MQuery;
     /**
      * Get/Set input value.
      * @param value [ONLY TO SET] input value
      * @return MQuery instance if setting a value, or string if getting
      */
-    val(value?: string): MQuery | string;
+    val(): string;
+    val(value: string): MQuery;
     /**
      * Add class on quered elements.
      * @param className class name
@@ -351,10 +359,10 @@ export declare class MQuery {
  * @param selector selector
  * @return MQuery instance
  */
-export declare const m$: (selector?: string | HTMLElement | NodeList | MQuery) => MQuery;
+export declare const m$: (selector?: string | Node | NodeList | Node[] | MQuery) => MQuery;
 /**
  * Return instance of MQuery with elements matched.
  * @param selector selector
  * @return MQuery instance
  */
-export declare const mQuery: (selector?: string | HTMLElement | NodeList | MQuery) => MQuery;
+export declare const mQuery: (selector?: string | Node | NodeList | Node[] | MQuery) => MQuery;
