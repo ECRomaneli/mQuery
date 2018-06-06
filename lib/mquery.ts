@@ -21,7 +21,7 @@ export class MQuery {
     
     /**
      * Default constructor.
-     * @param selector MQuery | NodeList | HTMLElement | QuerySelector | HTML String
+     * @param selector MQuery | NodeList | Node | Array<Node> | QuerySelector | HTML String
      */
     constructor(selector?: any) {
         let elems: Array<HTMLElement> | MQuery;
@@ -469,6 +469,8 @@ export class MQuery {
      * @param value [ONLY TO SET] attribute value
      * @return MQuery instance if setting a value, or string if getting
      */
+    public attr(attr: string): string;
+    public attr(attr: string, value: string): MQuery;
     public attr(attr: string, value?: string): MQuery | string {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
@@ -500,6 +502,9 @@ export class MQuery {
      * @param value [ONLY TO SET] value of the style
      * @return MQuery instance if setting a value, or string if getting
      */
+    public css(vame: string): string;
+    public css(json: Object): MQuery;
+    public css(name: string, value: string | number): MQuery;
     public css(nameOrJSON: any, value?: string): MQuery | string {
         if (!MQuery.typeOf(nameOrJSON, 'string')) {
             MQuery.forEachObj(nameOrJSON, (key, value) => {this.css(key, value)});
@@ -524,6 +529,8 @@ export class MQuery {
      * @param value text to be added
      * @return MQuery instance if setting a value, or string if getting
      */
+    public text(): string;
+    public text(value: string): MQuery;
     public text(value?: string): MQuery | string {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
@@ -538,7 +545,9 @@ export class MQuery {
      * @param value [ONLY TO SET] html code to be added
      * @return MQuery instance if setting a value, or string if getting
      */
-    public html(value?: any): MQuery | string {
+    public html(): string;
+    public html(value: string): MQuery;
+    public html(value?: string): MQuery | string {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
                 elem.innerHTML = value;
@@ -552,6 +561,8 @@ export class MQuery {
      * @param value [ONLY TO SET] html code to replace
      * @return MQuery instance if setting a value, or string if getting
      */
+    public outerHtml(): string;
+    public outerHtml(value: string): MQuery;
     public outerHtml(value?: string): MQuery | string {
         if (MQuery.isSet(value)) {
             return this.each((i, elem) => {
@@ -670,6 +681,8 @@ export class MQuery {
      * @param value [ONLY TO SET] attribute value
      * @return MQuery instance if setting a value, or string if getting
      */
+    public data(attr: string): string;
+    public data(attr: string, value: string): MQuery;
     public data(attr: string, value?: string): MQuery | string {
         if (!MQuery.isSet(value)) {
             return this.attr(`data-${attr}`);
@@ -682,6 +695,8 @@ export class MQuery {
      * @param value [ONLY TO SET] input value
      * @return MQuery instance if setting a value, or string if getting
      */
+    public val(): string;
+    public val(value: string): MQuery;
     public val(value?: string): MQuery | string {
         if (!MQuery.isSet(value)) {
             return this.attr('value');
@@ -770,7 +785,7 @@ export class MQuery {
  * @param selector selector
  * @return MQuery instance
  */
-export const m$ = (selector?: MQuery | NodeList | HTMLElement | string) => new MQuery(selector);
+export const m$ = (selector?: MQuery | NodeList | Node | Array<Node> | string) => new MQuery(selector);
 /**
  * Return instance of MQuery with elements matched.
  * @param selector selector

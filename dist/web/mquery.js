@@ -4,7 +4,7 @@
 var MQuery = /** @class */ (function () {
     /**
      * Default constructor.
-     * @param selector MQuery | NodeList | HTMLElement | QuerySelector | HTML String
+     * @param selector MQuery | NodeList | Node | Array<Node> | QuerySelector | HTML String
      */
     function MQuery(selector) {
         this.length = 0;
@@ -433,12 +433,6 @@ var MQuery = /** @class */ (function () {
             elem.dispatchEvent(customEvent);
         });
     };
-    /**
-     * Get/Set attribute on quered elements.
-     * @param attr attribute name
-     * @param value [ONLY TO SET] attribute value
-     * @return MQuery instance if setting a value, or string if getting
-     */
     MQuery.prototype.attr = function (attr, value) {
         if (MQuery.isSet(value)) {
             return this.each(function (i, elem) {
@@ -461,12 +455,6 @@ var MQuery = /** @class */ (function () {
             elem.removeAttribute(attr);
         });
     };
-    /**
-     * Get/Set style on quered elements.
-     * @param nameOrJSON name of the style or [ONLY TO SET] JSON with styles and values
-     * @param value [ONLY TO SET] value of the style
-     * @return MQuery instance if setting a value, or string if getting
-     */
     MQuery.prototype.css = function (nameOrJSON, value) {
         var _this = this;
         if (!MQuery.typeOf(nameOrJSON, 'string')) {
@@ -483,11 +471,6 @@ var MQuery = /** @class */ (function () {
             return elem.style[name];
         });
     };
-    /**
-     * Get/Set inner text on quered elements (for active HTML code, use .html()).
-     * @param value text to be added
-     * @return MQuery instance if setting a value, or string if getting
-     */
     MQuery.prototype.text = function (value) {
         if (MQuery.isSet(value)) {
             return this.each(function (i, elem) {
@@ -496,11 +479,6 @@ var MQuery = /** @class */ (function () {
         }
         return this.eachConcat(function (i, elem) { return elem.textContent; });
     };
-    /**
-     * Get/Set inner html on quered elements.
-     * @param value [ONLY TO SET] html code to be added
-     * @return MQuery instance if setting a value, or string if getting
-     */
     MQuery.prototype.html = function (value) {
         if (MQuery.isSet(value)) {
             return this.each(function (i, elem) {
@@ -509,11 +487,6 @@ var MQuery = /** @class */ (function () {
         }
         return this.eachConcat(function (i, elem) { return elem.innerHTML; });
     };
-    /**
-     * Get/Set outer html on quered elements.
-     * @param value [ONLY TO SET] html code to replace
-     * @return MQuery instance if setting a value, or string if getting
-     */
     MQuery.prototype.outerHtml = function (value) {
         if (MQuery.isSet(value)) {
             return this.each(function (i, elem) {
@@ -617,23 +590,12 @@ var MQuery = /** @class */ (function () {
             MQuery.setChildren(rawChildren, function (child) { parent.appendChild(child); }, function (str) { parent.insertAdjacentHTML('beforeend', str); });
         });
     };
-    /**
-     * Get/Set 'data' attribute.
-     * @param attr attribute name
-     * @param value [ONLY TO SET] attribute value
-     * @return MQuery instance if setting a value, or string if getting
-     */
     MQuery.prototype.data = function (attr, value) {
         if (!MQuery.isSet(value)) {
             return this.attr("data-" + attr);
         }
         return this.attr("data-" + attr, value);
     };
-    /**
-     * Get/Set input value.
-     * @param value [ONLY TO SET] input value
-     * @return MQuery instance if setting a value, or string if getting
-     */
     MQuery.prototype.val = function (value) {
         if (!MQuery.isSet(value)) {
             return this.attr('value');
