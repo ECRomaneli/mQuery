@@ -1,23 +1,26 @@
+/**
+ * MQuery, a jQuery-like lightweight framework.
+ */
 var MQuery = /** @class */ (function () {
     /**
-     * Default constructor
-     * @param selector MQuery | NodeList | Node | QuerySelector | HTML String
+     * Default constructor.
+     * @param selector MQuery | NodeList | HTMLElement | QuerySelector | HTML String
      */
     function MQuery(selector) {
         this.length = 0;
-        var nodes;
+        var elems;
         if (MQuery.typeOf(selector, 'function')) {
-            nodes = MQuery.generateNodeArray();
+            elems = MQuery.generateNodeArray();
             this.ready(selector);
         }
         else {
-            nodes = MQuery.generateNodeArray(selector);
+            elems = MQuery.generateNodeArray(selector);
         }
-        this.concat(nodes);
+        this.concat(elems);
     }
     // =================== ARRAY PROPERTIES =================== //
     /**
-     * Transform object parameter to Array
+     * Transform object parameter to Array.
      * @param obj object must be array compatible
      * @return Array
      */
@@ -25,22 +28,22 @@ var MQuery = /** @class */ (function () {
         return [].slice.call(obj || []);
     };
     /**
-     * Insert Node on internal list
-     * @param node Node element
+     * Insert element on internal list.
+     * @param elem element
      * @return MQuery instance
      */
-    MQuery.prototype.push = function (node) {
-        // Verify if node has been inserted inside this list before
-        if (!node || node[MQuery.APP_NAME] === this) {
+    MQuery.prototype.push = function (elem) {
+        // Verify if elem has been inserted inside this list before
+        if (!elem || elem[MQuery.APP_NAME] === this) {
             return this;
         }
-        this[this.length++] = node;
-        // Add list reference to the node
-        node[MQuery.APP_NAME] = this;
+        this[this.length++] = elem;
+        // Add list reference to the elem
+        elem[MQuery.APP_NAME] = this;
         return this;
     };
     /**
-     * Each listed elements on position ascendant order
+     * Each listed elements on position ascendant order.
      * @param fn {elem, index, list} Callback for each elements
      * @return void
      */
@@ -50,7 +53,7 @@ var MQuery = /** @class */ (function () {
         }
     };
     /**
-     * Each listed elements on position descendant order at found a positive return
+     * Each listed elements on position descendant order at found a positive return.
      * @param fn {elem, index, list} Callback for each elements
      * @return true if some iteration return true, or false if not
      */
@@ -63,19 +66,19 @@ var MQuery = /** @class */ (function () {
         return false;
     };
     /**
-     * Concat array-like elements inside current object
-     * @param nodes MQuery | Array[Node]
+     * Concat array-like elements inside current object.
+     * @param elems MQuery | Array[HTMLElement]
      * @return MQuery instance
      */
-    MQuery.prototype.concat = function (nodes) {
+    MQuery.prototype.concat = function (elems) {
         var _this = this;
-        nodes.forEach(function (node) { _this.push(node); });
+        elems.forEach(function (elem) { _this.push(elem); });
         return this;
     };
     // ====================== UTILITIES ======================= //
     /**
-     * Verify if parameter is set (comparing with undefined)
-     * NOTE: [], 0 and "" will return true
+     * Verify if parameter is set (comparing with undefined).
+     * NOTE: [], 0 and "" will return true.
      * @param param parameter to be verified
      * @return if object is setted or not
      */
@@ -83,7 +86,7 @@ var MQuery = /** @class */ (function () {
         return param !== undefined;
     };
     /**
-     * Verify the type of object passed and compare
+     * Verify the type of object passed and compare.
      * @param object object to be verified
      * @param type type of object
      * @return if object is of passed type or not
@@ -97,7 +100,7 @@ var MQuery = /** @class */ (function () {
         });
     };
     /**
-     * Verify if object is instance of type passed
+     * Verify if object is instance of type passed.
      * @param object object to be verified
      * @param type type of object
      * @return if object is instance of type or not
@@ -106,7 +109,7 @@ var MQuery = /** @class */ (function () {
         return object instanceof type;
     };
     /**
-     * Get the value or, if not exists, the default value
+     * Get the value or, if not exists, the default value.
      * @param value value
      * @param defaultValue default value
      * @return value if exists or default value if not
@@ -115,7 +118,7 @@ var MQuery = /** @class */ (function () {
         return MQuery.isSet(value) ? value : defaultValue;
     };
     /**
-     * Transform snake case string to camel case
+     * Transform snake case string to camel case.
      * @param s snake case string
      * @return camel case string
      */
@@ -123,7 +126,7 @@ var MQuery = /** @class */ (function () {
         return s.replace(/(\-\w)/g, function (m) { return m[1].toUpperCase(); });
     };
     /**
-     * Transform camel case string to snake case
+     * Transform camel case string to snake case.
      * @param c camel case string
      * @return snake case string
      */
@@ -131,18 +134,18 @@ var MQuery = /** @class */ (function () {
         return c.replace(/([A-Z])/g, function (m) { return "-" + m.toLowerCase(); });
     };
     /**
-     * Each elements of the list calling forEach Array Function
+     * Each elements of the list calling forEach Array Function.
      * @param list List of elements
-     * @param fn {elem} Callback for each elements
+     * @param fn (elem, index, array) Callback for each elements
      * @return void
      */
     MQuery.forEach = function (list, fn) {
-        Array.prototype.forEach.call(list, fn);
+        [].forEach.call(list, fn);
     };
     /**
-     * [HEAVY] Each object attributes and values
+     * [HEAVY] Each object attributes and values.
      * @param obj Object to each
-     * @param fn {key, value} Callback for each elements
+     * @param fn ForEachIterator Callback for each elements
      * @return void
      */
     MQuery.forEachObj = function (obj, fn) {
@@ -152,7 +155,7 @@ var MQuery = /** @class */ (function () {
     };
     // ================== MQUERY PROPERTIES =================== //
     /**
-     * Transform HTML/XML code to list of elements
+     * Transform HTML/XML code to list of elements.
      * @param code HTML/XML code
      * @return NodeList
      */
@@ -161,34 +164,34 @@ var MQuery = /** @class */ (function () {
         return MQuery.AUX_ELEM.childNodes;
     };
     /**
-     * Verify if element matches selector
+     * Verify if element matches selector.
      * @param elem element to be verified
-     * @param selector querySelector
+     * @param querySelector querySelector
      * @return true if element matches selector, or false if not
      */
-    MQuery.matches = function (elem, selector) {
-        if (!MQuery.isSet(selector)) {
+    MQuery.matches = function (elem, querySelector) {
+        if (!MQuery.isSet(querySelector)) {
             return true;
         }
         if (elem.matches) {
-            return elem.matches(selector);
+            return elem.matches(querySelector);
         }
         MQuery.AUX_ELEM.innerHTML = '';
         MQuery.AUX_ELEM.appendChild(elem);
-        return !!MQuery.AUX_ELEM.querySelector(selector);
+        return !!MQuery.AUX_ELEM.querySelector(querySelector);
     };
     /**
-     * Verify if element has parent
-     * @param elem elemet to be verified
+     * Verify if element has parent.
+     * @param elem element to be verified
      * @return true if has parent, or false if not
      */
     MQuery.hasParent = function (elem) {
-        return elem.parentNode && elem.parentNode !== MQuery.AUX_ELEM;
+        return !!elem.parentNode && elem.parentNode !== MQuery.AUX_ELEM;
     };
     /**
-     * Generate list of elements to concat
-     * @param selector MQuery | NodeList | Node | QuerySelector | HTML String
-     * @return Array<Node>|MQuery
+     * Generate list of elements to concat.
+     * @param selector MQuery | NodeList | HTMLElement | QuerySelector | HTML String
+     * @return Array<HTMLElement>|MQuery
      */
     MQuery.generateNodeArray = function (selector) {
         if (!MQuery.isSet(selector)) {
@@ -208,7 +211,7 @@ var MQuery = /** @class */ (function () {
         return [selector];
     };
     /**
-     * Set event shorthand methods
+     * Set event shorthand methods.
      * @param events Array<string> Example: ['click', 'focus', 'mouseenter'] enable this shorthand methods.
      * @return void
      */
@@ -224,13 +227,13 @@ var MQuery = /** @class */ (function () {
     };
     /**
      * Export automatic mQuery instance methods to objects.
-     * Ex.: MQuery.export(foo, ['click'], 'button') enables foo.click() trigger click on button tags
+     * Ex.: MQuery.(foo, ['click'], 'button') enables foo.click() trigger click on button tags
      * @param target object will be receive the method
-     * @param fns array of functions will be exported
-     * @param selector QuerySelector for mQuery instance
+     * @param fns array of functions will be ed
+     * @param selector selector for mQuery instance
      * @return void
      */
-    MQuery["export"] = function (target, fns, selector) {
+    MQuery.export = function (target, fns, selector) {
         if (selector === void 0) { selector = []; }
         fns.forEach(function (fn) {
             target[fn] = function () {
@@ -240,13 +243,13 @@ var MQuery = /** @class */ (function () {
         });
     };
     /**
-     * Generic child insertion
-     * @param rawChildren array<MQuery|Node|string> children array
-     * @param nodeInsertFn function responsible to add node child
+     * Generic child insertion.
+     * @param rawChildren array<MQuery|HTMLElement|string> children array
+     * @param elemInsertFn function responsible to add elem child
      * @param stringInsertFn function responsible to add string child
      * @return void
      */
-    MQuery.setChildren = function (rawChildren, nodeInsertFn, stringInsertFn) {
+    MQuery.setChildren = function (rawChildren, elemInsertFn, stringInsertFn) {
         var _this = this;
         rawChildren.forEach(function (children) {
             if (MQuery.instanceOf(children, MQuery)) {
@@ -254,21 +257,21 @@ var MQuery = /** @class */ (function () {
                     if (MQuery.hasParent(child)) {
                         return stringInsertFn(child.outerHTML);
                     }
-                    nodeInsertFn(child);
+                    elemInsertFn(child);
                 });
                 return;
             }
             if (MQuery.typeOf(children, 'array')) {
-                return _this.setChildren(children, nodeInsertFn, stringInsertFn);
+                return _this.setChildren(children, elemInsertFn, stringInsertFn);
             }
             if (MQuery.typeOf(children, 'string')) {
                 return stringInsertFn(children);
             }
-            return nodeInsertFn(children);
+            return elemInsertFn(children);
         });
     };
     /**
-     * Shorthand to concat all nodes quered values with space between them
+     * Shorthand to concat all elements quered values with space between them.
      * @param fnVal function responsible to generate value
      * @return string with values concated
      */
@@ -277,16 +280,16 @@ var MQuery = /** @class */ (function () {
         this.each(function (i, elem) {
             value += fnVal.apply(elem, [i, elem]) + " ";
         });
-        return value.trim() || undefined;
+        return value.trim() || void 0;
     };
     /**
-     * Return all leaf nodes (nodes without child)
+     * Return all leaf elements (elements without child).
      * @return MQuery instance
      */
     MQuery.prototype.leaves = function () {
         var leaves = new MQuery([]);
         this.each(function (i, elem) {
-            if (!elem.firstElementChild) {
+            if (!elem.firstChild) {
                 leaves.push(elem);
                 return;
             }
@@ -299,7 +302,7 @@ var MQuery = /** @class */ (function () {
         return leaves;
     };
     /**
-     * Called after DOM content finish load
+     * Called after DOM content finish load.
      * @param handler event listener
      * @return MQuery instance
      */
@@ -308,17 +311,17 @@ var MQuery = /** @class */ (function () {
         return this;
     };
     /**
-     * Each quered nodes
-     * @param handler callback to iterate nodes
+     * Each quered elements.
+     * @param handler callback to iterate elements
      * @return MQuery instance
      */
     MQuery.prototype.each = function (handler) {
         var count = 0;
-        this.forEach(function (node) { handler.apply(node, [count++, node]); });
+        this.forEach(function (elem) { handler.apply(elem, [count++, elem]); });
         return this;
     };
     /**
-     * Attach listeners on events passed by paramenter
+     * Attach listeners on events passed by paramenter.
      * @param event events separated by space
      * @param selectOrHandler [OPTIONAL] selector to query before attach
      * @param handler event listener
@@ -335,7 +338,7 @@ var MQuery = /** @class */ (function () {
         return this;
     };
     /**
-     * Detach listeners on events passed by paramenter
+     * Detach listeners on events passed by paramenter.
      * @param event events separated by space
      * @param selectOrHandler [OPTIONAL] selector to query before detach
      * @param handler event listener
@@ -352,32 +355,32 @@ var MQuery = /** @class */ (function () {
         return this;
     };
     MQuery.prototype.is = function (selector) {
-        var nodes = new MQuery([]);
+        var elems = new MQuery([]);
         this.each(function (i, elem) {
             if (MQuery.matches(elem, selector)) {
-                nodes.push(elem);
+                elems.push(elem);
             }
         });
-        return nodes;
+        return elems;
     };
     /**
-     * Find children elements by selector
+     * Find children elements by selector.
      * @param selector query selector
      * @return MQuery instance
      */
     MQuery.prototype.find = function (selector) {
-        var nodes = new MQuery([]), concat;
+        var elems = new MQuery([]), concat;
         this.each(function (i, elem) {
             try {
                 concat = elem.querySelectorAll(selector);
-                nodes.concat(concat);
+                elems.concat(concat);
             }
             catch (e) { }
         });
-        return nodes;
+        return elems;
     };
     /**
-     * Get parent node
+     * Get parent element.
      * @param selector [OPTIONAL] parent's selector
      * @return MQuery instance
      */
@@ -387,7 +390,7 @@ var MQuery = /** @class */ (function () {
             if (!MQuery.hasParent(elem)) {
                 return false;
             }
-            elem = elem.parentNode;
+            elem = elem.parentElement;
             if (!MQuery.matches(elem, selector)) {
                 return false;
             }
@@ -397,18 +400,18 @@ var MQuery = /** @class */ (function () {
         return parents;
     };
     /**
-     * [EXPERIMENTAL] Load data inside quered elements
+     * [EXPERIMENTAL] Load data inside quered elements.
      */
     MQuery.prototype.load = function (url, complete, error) {
         var _this = this;
         var fetchURL = fetch(url).then(function (data) { return data.text(); });
         fetchURL.then(function (text) { _this.html(text); });
         MQuery.isSet(complete) && fetchURL.then(complete);
-        MQuery.isSet(error) && fetchURL["catch"](error);
+        MQuery.isSet(error) && fetchURL.catch(error);
         return this;
     };
     /**
-     * Trigger events
+     * Trigger events.
      * @param event event name
      * @param data data to be passed to event
      * @return MQuery instance
@@ -420,7 +423,7 @@ var MQuery = /** @class */ (function () {
                 return;
             }
             var customEvent;
-            if (window['CustomEvent']) {
+            if (window && window['CustomEvent']) {
                 customEvent = new CustomEvent(event, data);
             }
             else {
@@ -431,7 +434,7 @@ var MQuery = /** @class */ (function () {
         });
     };
     /**
-     * Get/Set attribute on quered nodes
+     * Get/Set attribute on quered elements.
      * @param attr attribute name
      * @param value [ONLY TO SET] attribute value
      * @return MQuery instance if setting a value, or string if getting
@@ -440,7 +443,8 @@ var MQuery = /** @class */ (function () {
         if (MQuery.isSet(value)) {
             return this.each(function (i, elem) {
                 if (MQuery.isSet(elem[attr])) {
-                    return elem[attr] = value;
+                    elem[attr] = value;
+                    return;
                 }
                 elem.setAttribute(attr, value);
             });
@@ -458,7 +462,7 @@ var MQuery = /** @class */ (function () {
         });
     };
     /**
-     * Get/Set style on quered nodes
+     * Get/Set style on quered elements.
      * @param nameOrJSON name of the style or [ONLY TO SET] JSON with styles and values
      * @param value [ONLY TO SET] value of the style
      * @return MQuery instance if setting a value, or string if getting
@@ -480,7 +484,7 @@ var MQuery = /** @class */ (function () {
         });
     };
     /**
-     * Get/Set inner text on quered nodes (for active HTML code, use .html())
+     * Get/Set inner text on quered elements (for active HTML code, use .html()).
      * @param value text to be added
      * @return MQuery instance if setting a value, or string if getting
      */
@@ -493,7 +497,7 @@ var MQuery = /** @class */ (function () {
         return this.eachConcat(function (i, elem) { return elem.textContent; });
     };
     /**
-     * Get/Set inner html on quered nodes
+     * Get/Set inner html on quered elements.
      * @param value [ONLY TO SET] html code to be added
      * @return MQuery instance if setting a value, or string if getting
      */
@@ -506,7 +510,7 @@ var MQuery = /** @class */ (function () {
         return this.eachConcat(function (i, elem) { return elem.innerHTML; });
     };
     /**
-     * Get/Set outer html on quered nodes
+     * Get/Set outer html on quered elements.
      * @param value [ONLY TO SET] html code to replace
      * @return MQuery instance if setting a value, or string if getting
      */
@@ -518,31 +522,41 @@ var MQuery = /** @class */ (function () {
         }
         return this.eachConcat(function (i, elem) { return elem.outerHTML; });
     };
+    /**
+     * Return children of all elements on list.
+     * @param selector [OPTIONAL] match children before return
+     */
     MQuery.prototype.children = function (selector) {
-        var nodes = new MQuery([]);
-        this.each(function (i, elem) { nodes.concat(elem.childNodes); });
-        return selector ? nodes.is(selector) : nodes;
-    };
-    MQuery.prototype.first = function () {
-        return new MQuery(this.length ? this[0] : []);
-    };
-    MQuery.prototype.last = function () {
-        return new MQuery(this.length ? this[this.length - 1] : []);
+        var elems = new MQuery([]);
+        this.each(function (i, elem) { elems.concat(elem.childNodes); });
+        return selector ? elems.is(selector) : elems;
     };
     /**
-     * Get all siblings
+     * Return first element on list or undefined if list is empty.
+     */
+    MQuery.prototype.first = function () {
+        return new MQuery(this.length ? this[0] : undefined);
+    };
+    /**
+     * Return last element on list or undefined if list is empty.
+     */
+    MQuery.prototype.last = function () {
+        return new MQuery(this.length ? this[this.length - 1] : undefined);
+    };
+    /**
+     * Get all siblings.
      * @param selector [OPTIONAL] filter siblings by selector
      * @return MQuery instance
      */
     MQuery.prototype.siblings = function (selector) {
         var siblings = new MQuery([]);
         this.each(function (i, elem) {
-            MQuery.forEach(elem.parentNode.children, function (child) {
+            MQuery.forEach(elem.parentElement.children, function (child) {
                 if (child === elem) {
-                    return false;
+                    return;
                 }
                 if (!MQuery.matches(child, selector)) {
-                    return false;
+                    return;
                 }
                 siblings.push(child);
             });
@@ -550,7 +564,7 @@ var MQuery = /** @class */ (function () {
         return siblings;
     };
     /**
-     * Get previous sibling
+     * Get previous sibling.
      * @param selector [OPTIONAL] get previous sibling matches selector
      * @return MQuery instance
      */
@@ -566,7 +580,7 @@ var MQuery = /** @class */ (function () {
         return prev;
     };
     /**
-     * Get next sibling
+     * Get next sibling.
      * @param selector [OPTIONAL] get next sibling matches selector
      * @return MQuery instance
      */
@@ -582,8 +596,8 @@ var MQuery = /** @class */ (function () {
         return next;
     };
     /**
-     * Add elements before first child
-     * @param elem1... MQuery|Node|element
+     * Add elements before first child.
+     * @param elem1... MQuery|element
      * @return MQuery instance
      */
     MQuery.prototype.prepend = function () {
@@ -593,8 +607,8 @@ var MQuery = /** @class */ (function () {
         });
     };
     /**
-     * Add elements after last child
-     * @param elem1... MQuery|Node
+     * Add elements after last child.
+     * @param elem1... MQuery|Element
      * @return MQuery instance
      */
     MQuery.prototype.append = function () {
@@ -604,7 +618,7 @@ var MQuery = /** @class */ (function () {
         });
     };
     /**
-     * Get/Set 'data' attribute
+     * Get/Set 'data' attribute.
      * @param attr attribute name
      * @param value [ONLY TO SET] attribute value
      * @return MQuery instance if setting a value, or string if getting
@@ -616,7 +630,7 @@ var MQuery = /** @class */ (function () {
         return this.attr("data-" + attr, value);
     };
     /**
-     * Get/Set input value
+     * Get/Set input value.
      * @param value [ONLY TO SET] input value
      * @return MQuery instance if setting a value, or string if getting
      */
@@ -627,7 +641,7 @@ var MQuery = /** @class */ (function () {
         return this.attr('value', value);
     };
     /**
-     * Add class on quered nodes
+     * Add class on quered elements.
      * @param className class name
      * @return MQuery instance
      */
@@ -635,7 +649,7 @@ var MQuery = /** @class */ (function () {
         return this.each(function (i, elem) { elem.classList.add(className); });
     };
     /**
-     * Remove class on quered nodes
+     * Remove class on quered elements.
      * @param className class name
      * @return MQuery instance
      */
@@ -643,15 +657,15 @@ var MQuery = /** @class */ (function () {
         return this.each(function (i, elem) { elem.classList.remove(className); });
     };
     /**
-     * Return if some quered node has the class
+     * Return if some quered element has the class.
      * @param className class name
-     * @return true, if some quered node has the class, and false if not.
+     * @return true, if some quered element has the class, and false if not.
      */
     MQuery.prototype.hasClass = function (className) {
         return this.some(function (elem) { return elem.classList.contains(className); });
     };
     /**
-     * Toggle class on quered nodes
+     * Toggle class on quered elements.
      * @param className class name
      * @return MQuery instance
      */
@@ -659,32 +673,38 @@ var MQuery = /** @class */ (function () {
         return this.each(function (i, elem) { elem.classList.toggle(className); });
     };
     /**
-     * Remove nodes on MQuery array
+     * Remove elements on MQuery array.
      * @param selector [OPTIONAL] query selector
      */
     MQuery.prototype.remove = function (selector) {
-        var nodes = new MQuery();
+        var elems = new MQuery();
         this.each(function (i, elem) {
             if (MQuery.matches(elem, selector)) {
                 elem.outerHTML = '';
                 return;
             }
-            nodes.push(elem);
+            elems.push(elem);
         });
-        return nodes;
+        return elems;
     };
     /**
-     * Remove all childs (including texts)
+     * Remove all childs (including texts).
      */
     MQuery.prototype.empty = function () {
         return this.each(function (i, elem) { elem.innerHTML = ''; });
     };
+    /**
+     * Return width of first element on list.
+     */
     MQuery.prototype.width = function () {
         if (!this.length) {
             return undefined;
         }
         return this[0].clientWidth;
     };
+    /**
+     * Return height of first element on list.
+     */
     MQuery.prototype.height = function () {
         if (!this.length) {
             return undefined;
@@ -700,5 +720,17 @@ var MQuery = /** @class */ (function () {
     MQuery.fn = MQuery.prototype;
     return MQuery;
 }());
-var m$ = function (ref) { return new MQuery(ref); }, mQuery = m$;
-MQuery["export"](m$, ['ready', 'load']);
+/**
+ * Return instance of MQuery with elements matched.
+ * @param selector selector
+ * @return MQuery instance
+ */
+var m$ = function (selector) { return new MQuery(selector); };
+/**
+ * Return instance of MQuery with elements matched.
+ * @param selector selector
+ * @return MQuery instance
+ */
+var mQuery = m$;
+// Export global MQuery fns
+MQuery.export(m$, ['ready', 'load']);
