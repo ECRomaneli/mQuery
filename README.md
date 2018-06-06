@@ -69,32 +69,79 @@ All principal jQuery constructors works fine:
 Actually, all functions listed behind, are jQuery compatible. Then, all mQuery code with any functions listed, will works with jQuery.
 
 ### Stable
-- [ready(callback)](http://api.jquery.com/ready/)
-- [each(callback)](http://api.jquery.com/each/)
-- [on(events[, selector], handler)](http://api.jquery.com/on/)
-- [off(events[, selector], handler)](http://api.jquery.com/off/)
-- [trigger(events[, data])](http://api.jquery.com/trigger/)
-- [find(selector)](http://api.jquery.com/find/)
-- [parent([selector])](http://api.jquery.com/parent/)
-- [css(prop, value)](http://api.jquery.com/css/)
-- [css(propArray)](http://api.jquery.com/css/)
-- [attr(attrName, value)](http://api.jquery.com/attr/)
-- [html([htmlText])](http://api.jquery.com/html/)
-- [text([text])](http://api.jquery.com/text/)
-- [val([value])](http://api.jquery.com/val/)
-- [simblings([selector])](http://api.jquery.com/simblings/)
-- [prev([selector])](http://api.jquery.com/prev/)
-- [next([selector])](http://api.jquery.com/next/)
-- [addClass(class)](http://api.jquery.com/addclass/)
-- [removeClass(class)](http://api.jquery.com/removeclass/)
-- [toggleClass(class)](http://api.jquery.com/toggleclass/)
-- [prepend(elem1, ...elemN)](http://api.jquery.com/prepend/)
-- [append(elem1, ...elemN)](http://api.jquery.com/append/)
+
+```typescript
+    const {m$} = require('@ecromaneli/mquery')
+    let $t = m$('p')
+
+    // http://api.jquery.com/ready/
+    $t.ready(handler: Function): MQuery
+
+    // http://api.jquery.com/each/
+    $t.each(iterator: Function): MQuery 
+
+    // http://api.jquery.com/on/
+    $t.on(events: string, selector?: any, handler: Function): MQuery
+
+    // http://api.jquery.com/off/
+    $t.off(events: string, selector?: Selector, handler: Function): MQuery
+
+    // http://api.jquery.com/trigger/
+    $t.trigger(events: string, data?: any): MQuery
+
+    // http://api.jquery.com/find/
+    $t.find(selector: string): MQuery
+
+    // http://api.jquery.com/parent/
+    $t.parent(selector?: string): MQuery
+
+    // http://api.jquery.com/css/
+    $t.css(prop: string, value?: string): MQuery | string
+
+    // http://api.jquery.com/css/
+    $t.css(propArray: Array<string, string>): MQuery
+
+    // http://api.jquery.com/attr/
+    $t.attr(attr: string, value?: string): MQuery
+
+    // http://api.jquery.com/html/
+    $t.html(htmlText?: string): MQuery | string
+
+    // http://api.jquery.com/text/
+    $t.text(text: string): MQuery | string
+
+    // http://api.jquery.com/val/
+    $t.val(value?: string): MQuery | string
+
+    // http://api.jquery.com/simblings/
+    $t.simblings(selector?: string): MQuery
+
+    // http://api.jquery.com/prev/
+    $t.prev(selector?: string): MQuery
+
+    // http://api.jquery.com/next/
+    $t.next(selector?: string): MQuery
+
+    // http://api.jquery.com/addclass/
+    $t.addClass(class: string): MQuery
+
+    // http://api.jquery.com/removeclass/
+    $t.removeClass(class: string): MQuery
+
+    // http://api.jquery.com/toggleclass/
+    $t.toggleClass(class: string): MQuery
+
+    // http://api.jquery.com/prepend/
+    $t.prepend(...elem: MQuery | NodeList | HTMLElement): MQuery
+
+    // http://api.jquery.com/append/
+    $t.append(...elem: MQuery | NodeList | HTMLElement): MQuery
+```
 
 ### Experimental
 - [width([size])](http://api.jquery.com/width/)
 - [height([size])](http://api.jquery.com/height/)
-- load(url) [ALPHA]
+- load(url): [ALPHA]
 
 
 ### On Working...

@@ -1,6 +1,6 @@
 {
   "name": "@ecromaneli/mquery",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "The mQuery (or Mini-jQuery) is a most simple and clean way to query DOM Elements and bind Event Listeners without jQuery.",
   "main": "dist/module/mquery.js",
   "directories": {
