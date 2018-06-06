@@ -1,0 +1,37 @@
+{
+  "name": "@ecromaneli/mquery",
+  "version": "1.0.0",
+  "description": "The mQuery (or Mini-jQuery) is a most simple and clean way to query DOM Elements and bind Event Listeners without jQuery.",
+  "main": "dist/module/mquery.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "build": "sh build.sh",
+    "test": "node test/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ECRomaneli/mQuery.git"
+  },
+  "keywords": [
+    "jquery",
+    "mquery",
+    "dom",
+    "dom-manipulation",
+    "event-listener",
+    "jquery-like",
+    "lightweight"
+  ],
+  "author": "Emerson Capuchi Romaneli <emerson.romaneli@gmail.com> (http://emersoncr.com.br/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ECRomaneli/mQuery/issues"
+  },
+  "homepage": "https://github.com/ECRomaneli/mQuery#readme",
+  "devDependencies": {
+    "fakehtmldocument": "^1.0.0",
+    "typescript": "^2.9.1",
+    "uglify-js": "^3.4.0"
+  }
+}
