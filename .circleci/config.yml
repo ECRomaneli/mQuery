@@ -16,4 +16,4 @@ jobs:
       - run:
           name: Building mQuery...
           command: |
-            cd ~/mQuery && bash ./deploy.sh
+            cd ~/mQuery && bash ./build.sh && node ./test/test.js
