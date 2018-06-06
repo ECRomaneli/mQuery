@@ -81,10 +81,10 @@ Actually, all functions listed behind, are jQuery compatible. Then, all mQuery c
     $t.each(iterator: Function): MQuery 
 
     // http://api.jquery.com/on/
-    $t.on(events: string, selector?: any, handler: function): MQuery
+    $t.on(events: string, selector?: any, handler: Function): MQuery
 
     // http://api.jquery.com/off/
-    $t.off(events: string, selector?: Selector, handler: function): MQuery
+    $t.off(events: string, selector?: Selector, handler: Function): MQuery
 
     // http://api.jquery.com/trigger/
     $t.trigger(events: string, data?: any): MQuery
