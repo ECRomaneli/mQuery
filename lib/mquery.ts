@@ -1,7 +1,31 @@
 type ForIterator = (value?: any, index?: number, arr?: any) => void;
+export type AJAXCallback = Function;
 export type EachIterator = (index?: number, element?: HTMLElement) => boolean | void;
 export type ForEachIterator = (key: string, value: any) => void;
-export type StringArray = Object;
+export type AJAXPromise = Promise<Object>;
+export type KeyValue = Object;
+export type AJAXConfig = {
+    beforeSend?: (XHR: XMLHttpRequest, settings: KeyValue) => void,
+    complete?: (XHR: XMLHttpRequest, textStatus: string) => void,
+    success?: (data: any, textStatus: string, XHR: XMLHttpRequest) => void,
+    error?: (XHR: XMLHttpRequest, textStatus: string, errorThrown: string) => void,
+    contentType?: false | string,
+    context?: Object,
+    data?: KeyValue | string | any[],
+    dataFilter?: (data: string, type: string) => any,
+    headers?: KeyValue,
+    method: string,
+    type?: string,
+    url?: string,
+    mimeType?: string,
+    username?: string,
+    password?: string,
+    async?: boolean,
+    //? ifModified TODO
+    statusCode?: KeyValue,
+    timeout?: number,
+    xhr?: () => XMLHttpRequest
+};
 
 /**
  * MQuery, a jQuery-like lightweight framework.
@@ -17,6 +41,15 @@ export class MQuery {
     private static readonly DOC = document;
     private static readonly AUX_ELEM = MQuery.DOC.createElement(`_${MQuery.APP_NAME}_`);
     public static readonly fn = MQuery.prototype;
+    private static AJAX_CONFIG: AJAXConfig = {
+        contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+        method: 'GET',
+        statusCode: {},
+        xhr: () => new XMLHttpRequest(),
+        url: '',
+        headers: {},
+        async: true
+    }
     public length = 0;
     
     /**
@@ -173,7 +206,7 @@ export class MQuery {
      * @param fn ForEachIterator Callback for each elements
      * @return void
      */
-    public static forEachObj(obj: StringArray, fn: ForEachIterator): void {
+    public static forEachObj(obj: KeyValue, fn: ForEachIterator): void {
         for (let key in obj) {fn(key, obj[key]); }
     }
 
@@ -432,12 +465,154 @@ export class MQuery {
     /**
      * [EXPERIMENTAL] Load data inside quered elements.
      */
-    public load(url: string, complete?: any, error?: any): MQuery {
-        let fetchURL = fetch(url).then((data) => data.text());
-        fetchURL.then((text) => {this.html(text); });
-        MQuery.isSet(complete) && fetchURL.then(complete);
-        MQuery.isSet(error) && fetchURL.catch(error);
+    // public load(url: string, complete?: any, error?: any): MQuery {
+    //     let fetchURL = fetch(url).then((data) => data.text());
+    //     fetchURL.then((text) => {this.html(text); });
+    //     MQuery.isSet(complete) && fetchURL.then(complete);
+    //     MQuery.isSet(error) && fetchURL.catch(error);
+    //     return this;
+    // }
+
+    public load(url: string, data?: Object, complete?: AJAXCallback): MQuery {
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+            document.getElementById("demo").innerHTML = this.responseText;
+            }
+        };
+        xhttp.open("GET", "ajax_info.txt", true);
+        xhttp.send();
         return this;
+    }
+
+    public ajax(url: string): Object;
+    public ajax(config: AJAXConfig): Object;
+    public ajax(url: string, config: AJAXConfig): Object;
+    public ajax(url: string | AJAXConfig, config?: AJAXConfig): Object {            
+        if (MQuery.instanceOf(url, Object)) {
+            config = <AJAXConfig> url;
+            url = '';
+        } else {
+            config.url = <string> url;
+        }
+
+        let callbacks = {done:[],fail:[]};
+
+        MQuery.forEachObj(MQuery.AJAX_CONFIG, (key, value) => {
+            if (MQuery.isSet(config[key])) {return; }
+            config[key] = value;
+        });
+
+        // Create XMLHtmlRequest
+        let request = config.xhr();
+
+        // Call beforeSend
+        config.beforeSend && config.beforeSend(request, config);
+
+        // Set context of callbacks
+        let context = config.context || config;
+
+        // Set Method
+        let method = config.type || config.method;
+
+        let callSuccess = (fn, data) => {
+            let status = request.statusText.replace(/^[\d*\s]/g, '');
+
+            if (MQuery.isSet(config.dataFilter)) {
+                data = config.dataFilter(data, request.getResponseHeader('Content-Type'));
+            }
+
+            MQuery.callFn(fn, context, [data, status, request]);
+            MQuery.callFn(config.complete, context, [request, 'success']);
+            config.complete = () => {};
+        }
+
+        let callError = (fn, textStatus, errorMessage) => {
+            let errorThrown = request.statusText.replace(/^[\d*\s]/g, '');
+            MQuery.callFn(fn, context, [request, textStatus, errorThrown]);
+            MQuery.callFn(config.complete, context, [request, textStatus]);
+            config.complete = () => {};
+        }
+
+        let done = () => {
+            MQuery.callFns(callbacks.done, (callback) => {
+                if (request.status === 200) {
+                    callSuccess(callback, request.response);
+                } else {
+                    callError(callback, null, request.statusText);
+                }
+            });
+        };
+
+        let fail = (textStatus, errorMessage) => {
+            MQuery.callFns(callbacks.fail, (callback) => {
+                callError(textStatus, errorMessage, callback);
+            });
+        }
+
+        let options = {
+            done: (callback) => {
+                callbacks.done.push(callback);
+                return options;
+            },
+            fail: (callback) => {
+                callbacks.fail.push(callback);
+                return options;
+            },
+            then: (success, error) => {
+                options.done(success);
+                options.fail(error);
+                return options;
+            },
+            allways: (callback) => options.then(callback, callback)
+        }
+
+        // Open request
+        request.open(config.method, config.url, config.async, config.username, config.password);
+
+        // Override mime type
+        if (MQuery.isSet(config.mimeType)) {
+            request.overrideMimeType(config.mimeType);
+        }
+
+        // Set headers
+        request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        if (MQuery.isSet(config.headers)) {
+            MQuery.forEachObj(config.headers, (header, value) => {
+                request.setRequestHeader(header, value);
+            });
+        }
+        if (config.contentType !== false 
+        && (method === 'POST' || method === 'PUT')) {
+            request.setRequestHeader('Content-Type', config.contentType);
+        }
+
+        // Set timeout in ms
+        request.timeout = config.timeout;
+
+        // Listeners
+        options.then(config.success, config.error);
+        request.onload = done;
+        request.onerror = () => {fail('error', 'Connection error.')};
+        request.ontimeout = () => {fail('timeout', 'Request timed out.')};
+        request.onabort = () => {fail('abort', 'Request aborted.')};
+
+        // Proccess data
+        let data = config.data;
+
+        // Send data
+        request.send(data);
+
+        return options;
+    }
+
+    private static callFn(fn: Function, context: Object, params: any[] = []): void {
+        if (!fn || !MQuery.typeOf(fn, 'function')) {return; }
+        fn.apply(context, params);
+    }
+
+    private static callFns(fns: Function[], call: Function): void {
+        fns.forEach((fn) => {call(fn)});
     }
 
     /**
@@ -446,7 +621,7 @@ export class MQuery {
      * @param data data to be passed to event
      * @return MQuery instance
      */
-    public trigger(event: string, data?: StringArray): MQuery {
+    public trigger(event: string, data?: KeyValue): MQuery {
         return this.each((i, elem) => {
             if (event === 'focus') {
                 elem.focus();

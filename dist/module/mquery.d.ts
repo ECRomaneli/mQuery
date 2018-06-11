@@ -1,6 +1,29 @@
+export declare type AJAXCallback = Function;
 export declare type EachIterator = (index?: number, element?: HTMLElement) => boolean | void;
 export declare type ForEachIterator = (key: string, value: any) => void;
-export declare type StringArray = Object;
+export declare type AJAXPromise = Promise<Object>;
+export declare type KeyValue = Object;
+export declare type AJAXConfig = {
+    beforeSend?: (XHR: XMLHttpRequest, settings: KeyValue) => void;
+    complete?: (XHR: XMLHttpRequest, textStatus: string) => void;
+    success?: (data: any, textStatus: string, XHR: XMLHttpRequest) => void;
+    error?: (XHR: XMLHttpRequest, textStatus: string, errorThrown: string) => void;
+    contentType?: false | string;
+    context?: Object;
+    data?: KeyValue | string | any[];
+    dataFilter?: (data: string, type: string) => any;
+    headers?: KeyValue;
+    method: string;
+    type?: string;
+    url?: string;
+    mimeType?: string;
+    username?: string;
+    password?: string;
+    async?: boolean;
+    statusCode?: KeyValue;
+    timeout?: number;
+    xhr?: () => XMLHttpRequest;
+};
 /**
  * MQuery, a jQuery-like lightweight framework.
  */
@@ -14,6 +37,7 @@ export declare class MQuery {
     private static readonly DOC;
     private static readonly AUX_ELEM;
     static readonly fn: MQuery;
+    private static AJAX_CONFIG;
     length: number;
     /**
      * Default constructor.
@@ -103,7 +127,7 @@ export declare class MQuery {
      * @param fn ForEachIterator Callback for each elements
      * @return void
      */
-    static forEachObj(obj: StringArray, fn: ForEachIterator): void;
+    static forEachObj(obj: KeyValue, fn: ForEachIterator): void;
     /**
      * Transform HTML/XML code to list of elements.
      * @param code HTML/XML code
@@ -207,14 +231,19 @@ export declare class MQuery {
     /**
      * [EXPERIMENTAL] Load data inside quered elements.
      */
-    load(url: string, complete?: any, error?: any): MQuery;
+    load(url: string, data?: Object, complete?: AJAXCallback): MQuery;
+    ajax(url: string): Object;
+    ajax(config: AJAXConfig): Object;
+    ajax(url: string, config: AJAXConfig): Object;
+    private static callFn(fn, context, params?);
+    private static callFns(fns, call);
     /**
      * Trigger events.
      * @param event event name
      * @param data data to be passed to event
      * @return MQuery instance
      */
-    trigger(event: string, data?: StringArray): MQuery;
+    trigger(event: string, data?: KeyValue): MQuery;
     /**
      * Get/Set attribute on quered elements.
      * @param attr attribute name

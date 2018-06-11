@@ -402,13 +402,133 @@ var MQuery = /** @class */ (function () {
     /**
      * [EXPERIMENTAL] Load data inside quered elements.
      */
-    MQuery.prototype.load = function (url, complete, error) {
-        var _this = this;
-        var fetchURL = fetch(url).then(function (data) { return data.text(); });
-        fetchURL.then(function (text) { _this.html(text); });
-        MQuery.isSet(complete) && fetchURL.then(complete);
-        MQuery.isSet(error) && fetchURL.catch(error);
+    // public load(url: string, complete?: any, error?: any): MQuery {
+    //     let fetchURL = fetch(url).then((data) => data.text());
+    //     fetchURL.then((text) => {this.html(text); });
+    //     MQuery.isSet(complete) && fetchURL.then(complete);
+    //     MQuery.isSet(error) && fetchURL.catch(error);
+    //     return this;
+    // }
+    MQuery.prototype.load = function (url, data, complete) {
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                document.getElementById("demo").innerHTML = this.responseText;
+            }
+        };
+        xhttp.open("GET", "ajax_info.txt", true);
+        xhttp.send();
         return this;
+    };
+    MQuery.prototype.ajax = function (url, config) {
+        if (MQuery.instanceOf(url, Object)) {
+            config = url;
+            url = '';
+        }
+        else {
+            config.url = url;
+        }
+        var callbacks = { done: [], fail: [] };
+        MQuery.forEachObj(MQuery.AJAX_CONFIG, function (key, value) {
+            if (MQuery.isSet(config[key])) {
+                return;
+            }
+            config[key] = value;
+        });
+        // Create XMLHtmlRequest
+        var request = config.xhr();
+        // Call beforeSend
+        config.beforeSend && config.beforeSend(request, config);
+        // Set context of callbacks
+        var context = config.context || config;
+        // Set Method
+        var method = config.type || config.method;
+        var callSuccess = function (fn, data) {
+            var status = request.statusText.replace(/^[\d*\s]/g, '');
+            if (MQuery.isSet(config.dataFilter)) {
+                data = config.dataFilter(data, request.getResponseHeader('Content-Type'));
+            }
+            MQuery.callFn(fn, context, [data, status, request]);
+            MQuery.callFn(config.complete, context, [request, 'success']);
+            config.complete = function () { };
+        };
+        var callError = function (fn, textStatus, errorMessage) {
+            var errorThrown = request.statusText.replace(/^[\d*\s]/g, '');
+            MQuery.callFn(fn, context, [request, textStatus, errorThrown]);
+            MQuery.callFn(config.complete, context, [request, textStatus]);
+            config.complete = function () { };
+        };
+        var done = function () {
+            MQuery.callFns(callbacks.done, function (callback) {
+                if (request.status === 200) {
+                    callSuccess(callback, request.response);
+                }
+                else {
+                    callError(callback, null, request.statusText);
+                }
+            });
+        };
+        var fail = function (textStatus, errorMessage) {
+            MQuery.callFns(callbacks.fail, function (callback) {
+                callError(textStatus, errorMessage, callback);
+            });
+        };
+        var options = {
+            done: function (callback) {
+                callbacks.done.push(callback);
+                return options;
+            },
+            fail: function (callback) {
+                callbacks.fail.push(callback);
+                return options;
+            },
+            then: function (success, error) {
+                options.done(success);
+                options.fail(error);
+                return options;
+            },
+            allways: function (callback) { return options.then(callback, callback); }
+        };
+        // Open request
+        request.open(config.method, config.url, config.async, config.username, config.password);
+        // Override mime type
+        if (MQuery.isSet(config.mimeType)) {
+            request.overrideMimeType(config.mimeType);
+        }
+        // Set headers
+        request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        if (MQuery.isSet(config.headers)) {
+            MQuery.forEachObj(config.headers, function (header, value) {
+                request.setRequestHeader(header, value);
+            });
+        }
+        if (config.contentType !== false
+            && (method === 'POST' || method === 'PUT')) {
+            request.setRequestHeader('Content-Type', config.contentType);
+        }
+        // Set timeout in ms
+        request.timeout = config.timeout;
+        // Listeners
+        options.then(config.success, config.error);
+        request.onload = done;
+        request.onerror = function () { fail('error', 'Connection error.'); };
+        request.ontimeout = function () { fail('timeout', 'Request timed out.'); };
+        request.onabort = function () { fail('abort', 'Request aborted.'); };
+        // Proccess data
+        var data = config.data;
+        // Send data
+        request.send(data);
+        return options;
+    };
+    MQuery.callFn = function (fn, context, params) {
+        if (params === void 0) { params = []; }
+        if (!fn || !MQuery.typeOf(fn, 'function')) {
+            return;
+        }
+        fn.apply(context, params);
+    };
+    MQuery.callFns = function (fns, call) {
+        fns.forEach(function (fn) { call(fn); });
     };
     /**
      * Trigger events.
@@ -680,6 +800,15 @@ var MQuery = /** @class */ (function () {
     MQuery.DOC = document;
     MQuery.AUX_ELEM = MQuery.DOC.createElement("_" + MQuery.APP_NAME + "_");
     MQuery.fn = MQuery.prototype;
+    MQuery.AJAX_CONFIG = {
+        contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+        method: 'GET',
+        statusCode: {},
+        xhr: function () { return new XMLHttpRequest(); },
+        url: '',
+        headers: {},
+        async: true
+    };
     return MQuery;
 }());
 /**
