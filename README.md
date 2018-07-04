@@ -50,19 +50,19 @@ All principal jQuery constructors works fine:
 
 ```typescript
     // on ready callback
-    m$(handler: Function): MQuery
+    m$(handler: Function): mQuery
 
     // Array of HTMLElements
-    m$(elemArr: Array<HTMLElement>): MQuery
+    m$(elemArr: Array<HTMLElement>): mQuery
 
     // HTML Element
-    m$(elem: HTMLElement): MQuery
+    m$(elem: HTMLElement): mQuery
 
     // NodeList
-    m$(list: NodeList): MQuery
+    m$(list: NodeList): mQuery
 
-    // MQuery instance
-    m$(instance: MQuery): MQuery
+    // mQuery instance
+    m$(instance: mQuery): mQuery
 ```
 
 ## Functions
@@ -71,81 +71,187 @@ Actually, all functions listed behind, are jQuery compatible. Then, all mQuery c
 ### Stable
 
 ```typescript
-    const {m$} = require('@ecromaneli/mquery')
-    let $t = m$('p')
-
     // http://api.jquery.com/ready/
-    $t.ready(handler: Function): MQuery
+    .ready(handler: Function): this
 
     // http://api.jquery.com/each/
-    $t.each(iterator: Function): MQuery 
+    .each(iterator: Function): this
 
-    // http://api.jquery.com/on/
-    $t.on(events: string, selector?: any, handler: Function): MQuery
+    // http://api.jquery.com/on/ [BASIC IMPLEMENTATION]
+    .on(events: string, selector?: any, handler: Function): this
 
-    // http://api.jquery.com/off/
-    $t.off(events: string, selector?: Selector, handler: Function): MQuery
+    // http://api.jquery.com/off/ [BASIC IMPLEMENTATION]
+    .off(events: string, selector?: Selector, handler: Function): this
+
+    // http://api.jquery.com/one/ [BASIC IMPLEMENTATION]
+    .one(events: string, selector?: any, handler: Function): this
 
     // http://api.jquery.com/trigger/
-    $t.trigger(events: string, data?: any): MQuery
+    .trigger(events: string, data?: any): this
 
     // http://api.jquery.com/find/
-    $t.find(selector: string): MQuery
+    .find(selector: string): mQuery
+
+    // http://api.jquery.com/is/
+    .is(filter: Function | string): boolean
+
+    // http://api.jquery.com/not/
+    .not(filter: Function | string): mQuery
+
+    // http://api.jquery.com/has/
+    .has(selector: string | HTMLElement): mQuery
+
+    // http://api.jquery.com/filter/
+    .filter(filter: Function | string): mQuery
+
+    // http://api.jquery.com/end/
+    .end(): mQuery
 
     // http://api.jquery.com/parent/
-    $t.parent(selector?: string): MQuery
+    .parent(selector?: string): mQuery
+
+    // http://api.jquery.com/parents/
+    .parents(selector?: string): mQuery
 
     // http://api.jquery.com/css/
-    $t.css(prop: string, value?: string): MQuery | string
+    .css(prop: string, value?: string): this | string
 
     // http://api.jquery.com/css/
-    $t.css(propArray: Array<string, string>): MQuery
+    .css(propArray: Array<string, string>): this
 
     // http://api.jquery.com/attr/
-    $t.attr(attr: string, value?: string): MQuery
+    .attr(attr: PlainObject | string, value?: string): this
+
+    // http://api.jquery.com/removeAttr/
+    .removeAttr(attrNames: string): this
+
+    // http://api.jquery.com/prop/
+    .prop(propName: PlainObject | string, value?: string): this
+
+    // http://api.jquery.com/removeProp/
+    .removeProp(propNames: string): this
 
     // http://api.jquery.com/html/
-    $t.html(htmlText?: string): MQuery | string
+    .html(htmlText?: string): this | string
 
     // http://api.jquery.com/text/
-    $t.text(text: string): MQuery | string
+    .text(text: string): this | string
+
+    // http://api.jquery.com/data/
+    .data(key: PlainObject | string, value?: string): this
 
     // http://api.jquery.com/val/
-    $t.val(value?: string): MQuery | string
+    .val(value?: string): this | string
+
+    // http://api.jquery.com/remove/
+    .remove(selector?: string): mQuery
+
+    // http://api.jquery.com/empty/
+    .empty(): this
+
+    // http://api.jquery.com/map/
+    .map(beforePush: Function): Array
+
+    // http://api.jquery.com/children/
+    .children(selector?: string): mQuery
 
     // http://api.jquery.com/simblings/
-    $t.simblings(selector?: string): MQuery
+    .simblings(selector?: string): mQuery
 
     // http://api.jquery.com/prev/
-    $t.prev(selector?: string): MQuery
+    .prev(selector?: string): mQuery
 
     // http://api.jquery.com/next/
-    $t.next(selector?: string): MQuery
+    .next(selector?: string): mQuery
 
     // http://api.jquery.com/addclass/
-    $t.addClass(class: string): MQuery
+    .addClass(class: string): this
 
     // http://api.jquery.com/removeclass/
-    $t.removeClass(class: string): MQuery
+    .removeClass(class: string): this
 
     // http://api.jquery.com/toggleclass/
-    $t.toggleClass(class: string): MQuery
+    .toggleClass(class: string): this
 
     // http://api.jquery.com/prepend/
-    $t.prepend(...elem: MQuery | NodeList | HTMLElement): MQuery
+    .prepend(...elem: mQuery | NodeList | HTMLElement): this
 
     // http://api.jquery.com/append/
-    $t.append(...elem: MQuery | NodeList | HTMLElement): MQuery
+    .append(...elem: mQuery | NodeList | HTMLElement): this
 ```
 
-### Experimental
-- [width([size])](http://api.jquery.com/width/)
-- [height([size])](http://api.jquery.com/height/)
-- load(url): [ALPHA]
+### AJAX
+```typescript
+    // http://api.jquery.com/jQuery.ajax/
+    m$.ajax(url?: string, settings: AJAXSettings): Deferred
 
+    // http://api.jquery.com/jQuery.get/
+    m$.get(url: string, data?: any, success: AJAXSuccess): Deferred
+    m$.get(settings: AJAXSettings): Deferred
+
+    // http://api.jquery.com/jQuery.post/
+    m$.post(url: string, data: any, success: AJAXSuccess): Deferred
+    m$.post(settings: AJAXSettings): Deferred
+```
+
+### Promise
+```typescript
+    // http://api.jquery.com/jQuery.Deferred/
+    m$.Deferred(beforeStart?: Function): Deferred
+```
+
+### Utils
+```typescript
+    // http://api.jquery.com/jQuery.isArrayLike/
+    m$.isArrayLike(obj): boolean
+
+    // http://api.jquery.com/jQuery.isEmptyObject/
+    m$.isEmptyObject(obj: any): boolean
+
+    // http://api.jquery.com/jQuery.globalEval/
+    m$.globalEval(code: string): void
+
+    // http://api.jquery.com/jQuery.parseHTML/
+    m$.parseHTML(htmlString: string): NodeList
+
+    // http://api.jquery.com/jQuery.param/
+    m$.param(obj: ArrayLikeObject, tradicional = false): string
+
+    // http://api.jquery.com/jQuery.merge/
+    m$.merge(first: ArrayLike, second: ArrayLike): ArrayLike
+
+    // http://api.jquery.com/jQuery.makeArray/
+    m$.makeArray(obj: ArrayLike): Array
+
+    // http://api.jquery.com/jQuery.proxy/
+    m$.proxy(target: Function, context: any): Function
+
+    // http://api.jquery.com/jQuery.each/
+    m$.each(arr: ArrayLikeObject, it: ForEachIterator): ArrayLikeObject
+
+    // http://api.jquery.com/jQuery.grep/
+    m$.grep(arr: ArrayLike, filter: (value, index) => boolean, invert = false): ArrayLike
+
+    // http://api.jquery.com/jQuery.map/
+    m$.map(arr: ArrayLikeObject, beforePush: (value, index) => any): Array
+
+    // http://api.jquery.com/jQuery.type/
+    m$.type(obj: any): string
+
+```
+
+### Exclusive Utils
+```typescript
+    // Transforms object into string and string into object
+    m$.json(objOrText: Object | string, ignoreErr: boolean, forceStringify?: boolean): Object | string
+
+    // Get and set cookies by key
+    m$.cookie(key: string, value?: any, options: {timeout: seconds, path: string}): any
+```
 
 ### On Working...
-- parents()
+- [width([size])](http://api.jquery.com/width/)
+- [height([size])](http://api.jquery.com/height/)
 
 ## Author
 

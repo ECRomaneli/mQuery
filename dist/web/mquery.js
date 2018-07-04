@@ -1,827 +1,1255 @@
-/**
- * MQuery, a jQuery-like lightweight framework.
- */
-var MQuery = /** @class */ (function () {
-    /**
-     * Default constructor.
-     * @param selector MQuery | NodeList | Node | Array<Node> | QuerySelector | HTML String
-     */
-    function MQuery(selector) {
-        this.length = 0;
-        var elems;
-        if (MQuery.typeOf(selector, 'function')) {
-            elems = MQuery.generateNodeArray();
-            this.ready(selector);
-        }
-        else {
-            elems = MQuery.generateNodeArray(selector);
-        }
-        this.concat(elems);
-    }
-    // =================== ARRAY PROPERTIES =================== //
-    /**
-     * Transform object parameter to Array.
-     * @param obj object must be array compatible
-     * @return Array
-     */
-    MQuery.toArray = function (obj) {
-        return [].slice.call(obj || []);
+function m$(selector, context) {
+    return new mQuery.Class(selector, context);
+}
+var mQuery = m$;
+(function (m$) {
+    var HTTP;
+    (function (HTTP) {
+        HTTP["GET"] = "GET";
+        HTTP["HEAD"] = "HEAD";
+        HTTP["POST"] = "POST";
+        HTTP["PUT"] = "PUT";
+        HTTP["DELETE"] = "DELETE";
+        HTTP["CONNECT"] = "CONNECT";
+        HTTP["OPTIONS"] = "OPTIONS";
+        HTTP["TRACE"] = "TRACE";
+        HTTP["PATCH"] = "PATCH";
+    })(HTTP = m$.HTTP || (m$.HTTP = {}));
+    // init constants
+    var DOC = document;
+    var AJAX_CONFIG = {
+        contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+        method: HTTP.GET,
+        statusCode: {},
+        xhr: function () { return new XMLHttpRequest(); },
+        headers: {},
+        timeout: 0,
+        async: true
     };
+    // mQuery constants
+    m$.APP_NAME = 'mQuery';
+    m$.AUX_ELEM = DOC.createElement("_" + m$.APP_NAME + "_");
     /**
-     * Insert element on internal list.
-     * @param elem element
-     * @return MQuery instance
+     * mQuery Core.
      */
-    MQuery.prototype.push = function (elem) {
-        // Verify if elem has been inserted inside this list before
-        if (!elem || elem[MQuery.APP_NAME] === this) {
+    var mQuery = /** @class */ (function () {
+        /**
+         * Constructor.
+         * @param selector mQuery | NodeList | Node | Node[] | QuerySelector | HTML String
+         */
+        function mQuery(selector, context) {
+            this.length = 0;
+            // If selector is a false value with no context or is document
+            if ((isFalse(selector) && !context) || selector === DOC) {
+                // Remove prevObject
+                delete this.prevObject;
+                // If selector is DOC, then add DOC into mQuery instance
+                selector === DOC && this.push(DOC);
+                // Return mQuery instance
+                return this;
+            }
+            // If selector is a function
+            if (typeOf(selector, 'function')) {
+                return ROOT.ready(selector);
+            }
+            var prev = createList(m$(), context);
+            this.prevObject = prev.length ? prev : ROOT;
+            createList(this, selector, this.prevObject);
+        }
+        // =================== ARRAY PROPERTIES =================== //
+        /**
+         * Insert element without repeat.
+         */
+        mQuery.prototype.push = function (elem) {
+            if (!elem) {
+                return this;
+            }
+            if (!elem[m$.APP_NAME]) {
+                // Set APP_NAME property into Node
+                elem[m$.APP_NAME] = { $ref: this };
+            }
+            else {
+                // Get APP_NAME property
+                var prop = elem[m$.APP_NAME];
+                // Verify if elem has been inserted inside this list before (last)
+                if (prop.$ref === this) {
+                    return this;
+                }
+                // Add list reference to the element
+                prop.$ref = this;
+            }
+            // Add element increasing length
+            this[this.length++] = elem;
+            // Return this
             return this;
-        }
-        this[this.length++] = elem;
-        // Add list reference to the elem
-        elem[MQuery.APP_NAME] = this;
-        return this;
-    };
+        };
+        /**
+         * Concat array-like elements inside current object.
+         */
+        mQuery.prototype.concat = function (elems) {
+            return merge(this, elems);
+        };
+        // ================== MQUERY PROPERTIES =================== //
+        /**
+         * [ONLY MQUERY] Return all leaf elements (elements without child).
+         */
+        mQuery.prototype.leaves = function () {
+            return this.find('*').filter(function (i, elem) { return !elem.firstElementChild; });
+        };
+        /**
+         * Specify a function to execute when the DOM is fully loaded.
+         * @param handler A function to execute after the DOM is ready.
+         */
+        mQuery.prototype.ready = function (handler) {
+            if (DOC.readyState !== 'loading') {
+                handler(void 0);
+            }
+            else {
+                DOC.addEventListener('DOMContentLoaded', handler);
+            }
+            return this;
+        };
+        /**
+         * Iterate over a mQuery object, executing a function for each matched element.
+         * @param handler A function to execute for each matched element.
+         */
+        mQuery.prototype.each = function (handler) {
+            return each(this, handler);
+        };
+        mQuery.prototype.on = function (events, selector, handler) {
+            var $elems = this;
+            if (isSet(handler)) {
+                $elems = this.find(selector);
+            }
+            else {
+                handler = selector;
+            }
+            $elems.each(function (i, elem) {
+                events.split(' ').forEach(function (event) {
+                    elem.addEventListener(event, handler, true);
+                });
+            });
+            return this;
+        };
+        mQuery.prototype.one = function (events, selector, handler) {
+            var $elems = this, oneHandler;
+            if (isSet(handler)) {
+                $elems = this.find(selector);
+            }
+            else {
+                handler = selector;
+            }
+            events.split(' ').forEach(function (event) {
+                oneHandler = function () {
+                    m$(this).off(event, oneHandler);
+                    return handler.apply(this, arguments);
+                };
+                $elems.on(event, oneHandler);
+            });
+            return this;
+        };
+        mQuery.prototype.off = function (events, selector, handler) {
+            var $elems = this;
+            if (isSet(handler)) {
+                $elems = this.find(selector);
+            }
+            else {
+                handler = selector;
+            }
+            $elems.each(function (i, elem) {
+                events.split(' ').forEach(function (event) { elem.removeEventListener(event, handler, true); });
+            });
+            return this;
+        };
+        mQuery.prototype.is = function (filter) {
+            var isStr = typeOf(filter, 'string');
+            return some(this, function (i, elem) {
+                return isStr ? matches(elem, filter) : filter.call(elem, i, elem);
+            });
+        };
+        mQuery.prototype.filter = function (filter, context) {
+            var elems = m$([], context || this), isStr = typeOf(filter, 'string');
+            this.each(function (i, elem) {
+                if (isStr) {
+                    if (matches(elem, filter)) {
+                        elems.push(elem);
+                    }
+                }
+                else if (filter.call(elem, i, elem)) {
+                    elems.push(elem);
+                }
+            });
+            return elems;
+        };
+        mQuery.prototype.not = function (filter) {
+            return this.filter(typeOf(filter, 'string') ?
+                function (i, elem) { return !matches(elem, filter); } :
+                function (i, elem) { return !filter.call(elem, i, elem); });
+        };
+        mQuery.prototype.has = function (selector) {
+            var elems = m$([], this), isStr = typeOf(selector, 'string');
+            this.each(function (i, elem) {
+                if (isStr ? elem.querySelector(selector) : elem.contains(selector)) {
+                    elems.push(elem);
+                }
+            });
+            return elems;
+        };
+        /**
+         * Get the descendants of each element in the current set of matched elements, filtered by a selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        mQuery.prototype.find = function (selector) {
+            var elems = m$([], this), nodeList;
+            this.each(function (i, elem) {
+                elems.concat(elem.querySelectorAll(selector));
+            });
+            return elems;
+        };
+        /**
+         * Get the parent of each element in the current set of matched elements, optionally filtered by a selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        mQuery.prototype.parent = function (selector) {
+            var parents = m$([], this);
+            this.each(function (i, elem) {
+                if (!hasParent(elem)) {
+                    return;
+                }
+                elem = elem.parentElement;
+                if (!matches(elem, selector)) {
+                    return;
+                }
+                parents.push(elem);
+            });
+            return parents;
+        };
+        /**
+         * Get the ancestors of each element in the current set of matched elements.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        mQuery.prototype.parents = function (selector) {
+            var parents = m$(), newParents = this.parent();
+            do {
+                parents.concat(newParents);
+                newParents = newParents.parent();
+            } while (newParents.length);
+            parents = parents.filter(selector, this);
+            return parents;
+        };
+        /**
+         * End the most recent filtering operation in the current chain and return the set of matched elements to its previous state.
+         */
+        mQuery.prototype.end = function () {
+            return this.prevObject || EMPTY;
+        };
+        /**
+         * Execute all handlers and behaviors attached to the matched elements for the given event type.
+         * @param event A string containing a JavaScript event type, such as click or submit.
+         * @param params Additional parameters to pass along to the event handler.
+         */
+        mQuery.prototype.trigger = function (event, params) {
+            return this.each(function (i, elem) {
+                if (event === 'focus') {
+                    elem.focus();
+                    return;
+                }
+                var customEvent;
+                if (window && window['CustomEvent']) {
+                    customEvent = new CustomEvent(event, params);
+                }
+                else {
+                    customEvent = DOC.createEvent(snakeToCamelCase(event));
+                    customEvent.initCustomEvent(event, true, true, params);
+                }
+                elem.dispatchEvent(customEvent);
+            });
+        };
+        mQuery.prototype.attr = function (attrs, value) {
+            var _this = this;
+            // attr(attrName: string, value: string | null): this;
+            if (isSet(value)) {
+                return this.each(function (i, elem) {
+                    if (value === null) {
+                        _this.removeAttr(attrs);
+                    }
+                    elem.setAttribute(attrs, value);
+                });
+            }
+            // attr(attrs: PlainObject): this;
+            if (!typeOf(attrs, 'string')) {
+                each(attrs, function (attr, value) {
+                    _this.attr(attr, value);
+                });
+                return this;
+            }
+            // attr(attrName: string): string;
+            return empty(this) ? void 0 : (this[0].getAttribute(attrs) || void 0);
+        };
+        /**
+         * Remove an attribute from each element in the set of matched elements.
+         * @param attrNames An attribute to remove, it can be a space-separated list of attributes.
+         */
+        mQuery.prototype.removeAttr = function (attrNames) {
+            return this.each(function (i, elem) {
+                attrNames.split(' ').forEach(function (attrName) {
+                    elem.removeAttribute(attrName);
+                });
+            });
+        };
+        mQuery.prototype.prop = function (props, value) {
+            var _this = this;
+            // prop(propName: string, value: string): this;
+            if (isSet(value)) {
+                return this.each(function (i, elem) {
+                    if (isSet(elem[props])) {
+                        elem[props] = value;
+                        return;
+                    }
+                    elem.setAttribute(props, value);
+                });
+            }
+            // prop(props: PlainObject): this;
+            if (!typeOf(props, 'string')) {
+                each(props, function (prop, value) {
+                    _this.prop(prop, value);
+                });
+                return this;
+            }
+            // prop(propName: string): any;
+            if (empty(this)) {
+                return void 0;
+            }
+            if (isSet(this[0][props])) {
+                return this[0][props];
+            }
+            return this[0].getAttribute(props) || void 0;
+        };
+        /**
+         * Remove a property for the set of matched elements.
+         * @param propNames An property to remove, it can be a space-separated list of attributes
+         */
+        mQuery.prototype.removeProp = function (propNames) {
+            return this.each(function (i, elem) {
+                propNames.split(' ').forEach(function (propName) {
+                    if (isSet(elem[propName])) {
+                        delete elem[propName];
+                        return;
+                    }
+                    elem.removeAttribute(propName);
+                });
+            });
+        };
+        mQuery.prototype.css = function (prop, value) {
+            var _this = this;
+            if (!typeOf(prop, 'string')) {
+                each(prop, function (key, value) { _this.css(key, value); });
+                return this;
+            }
+            var name = snakeToCamelCase(prop);
+            if (isSet(value)) {
+                return this.each(function (i, elem) {
+                    elem.style[name] = value;
+                });
+            }
+            return empty(this) ? void 0 : this[0].style[name];
+        };
+        mQuery.prototype.text = function (text) {
+            if (isSet(text)) {
+                return this.each(function (i, elem) {
+                    elem.textContent = text;
+                });
+            }
+            var value = '';
+            this.each(function (i, elem) {
+                value += elem.textContent;
+            });
+            return value.trim() || void 0;
+        };
+        mQuery.prototype.html = function (htmlString) {
+            if (isSet(htmlString)) {
+                return this.each(function (i, elem) {
+                    elem.innerHTML = htmlString;
+                });
+            }
+            return empty(this) ? void 0 : this[0].innerHTML;
+        };
+        /**
+         * Get the children of each element in the set of matched elements, optionally filtered by a selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        mQuery.prototype.children = function (selector) {
+            var elems = m$();
+            this.each(function (i, elem) { elems.concat(elem.children); });
+            return selector ? elems.filter(selector, this) : elems;
+        };
+        /**
+         * Reduce the set of matched elements to the first in the set.
+         */
+        mQuery.prototype.first = function () {
+            return m$(empty(this) ? void 0 : this[0]);
+        };
+        /**
+         * Reduce the set of matched elements to the final one in the set.
+         */
+        mQuery.prototype.last = function () {
+            return m$(empty(this) ? void 0 : this[this.length - 1]);
+        };
+        /**
+         * Get the siblings of each element in the set of matched elements, optionally filtered by a selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        mQuery.prototype.siblings = function (selector) {
+            var siblings = m$([], this);
+            this.each(function (i, elem) {
+                each(elem.parentElement.children, function (i, child) {
+                    if (child === elem) {
+                        return;
+                    }
+                    if (!matches(child, selector)) {
+                        return;
+                    }
+                    siblings.push(child);
+                });
+            });
+            return siblings;
+        };
+        /**
+         * Get the immediately preceding sibling of each element in the set of matched elements. If a selector is provided, it retrieves the previous sibling only if it matches that selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        mQuery.prototype.prev = function (selector) {
+            var prev = m$([], this);
+            this.each(function (i, elem) {
+                var prevElem = elem.previousElementSibling;
+                if (matches(prevElem, selector)) {
+                    prev.push(prevElem);
+                }
+                prev.push(prevElem);
+            });
+            return prev;
+        };
+        /**
+         * Get the immediately following sibling of each element in the set of matched elements. If a selector is provided, it retrieves the next sibling only if it matches that selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        mQuery.prototype.next = function (selector) {
+            var next = m$([], this);
+            this.each(function (i, elem) {
+                var nextElem = elem.nextElementSibling;
+                if (matches(nextElem, selector)) {
+                    next.push(nextElem);
+                }
+            });
+            return next;
+        };
+        /**
+         * Insert content, specified by the parameter, to the beginning of each element in the set of matched elements.
+         * @param contents DOM element, text node, array of elements and text nodes, HTML string, or mQuery object to insert at the beginning of each element in the set of matched elements.
+         */
+        mQuery.prototype.prepend = function () {
+            var contents = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                contents[_i] = arguments[_i];
+            }
+            var rawChildren = contents.reverse();
+            return this.each(function (i, parent) {
+                setChildren(rawChildren, function (child) { parent.insertBefore(child, parent.firstChild); }, function (str) { parent.insertAdjacentHTML('afterbegin', str); });
+            });
+        };
+        /**
+         * Insert content, specified by the parameter, to the end of each element in the set of matched elements.
+         * @param contents DOM element, text node, array of elements and text nodes, HTML string, or mQuery object to insert at the end of each element in the set of matched elements.
+         */
+        mQuery.prototype.append = function () {
+            var contents = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                contents[_i] = arguments[_i];
+            }
+            return this.each(function (i, parent) {
+                setChildren(contents, function (child) { parent.appendChild(child); }, function (str) { parent.insertAdjacentHTML('beforeend', str); });
+            });
+        };
+        mQuery.prototype.data = function (keyOrObj, value) {
+            var _this = this;
+            if (empty(this)) {
+                return void 0;
+            }
+            // data(): any;
+            if (!isSet(keyOrObj)) {
+                return dataRef(this[0]);
+            }
+            // data(key: string | number, value: any): this;
+            if (isSet(value)) {
+                return this.each(function (i, elem) {
+                    dataRef(elem, false)[keyOrObj] = value;
+                });
+            }
+            // data(key: string | number): any;
+            if (typeOf(keyOrObj, 'string number')) {
+                return dataRef(this[0], keyOrObj);
+            }
+            // data(obj: Object): this;
+            each(keyOrObj, function (key, value) {
+                _this.data(key, value);
+            });
+            return this;
+        };
+        mQuery.prototype.val = function (value) {
+            if (!isSet(value)) {
+                return this.prop('value');
+            }
+            return this.prop('value', value);
+        };
+        /**
+         * Adds the specified class(es) to each element in the set of matched elements.
+         * @param className One or more space-separated classes to be added to the class attribute of each matched element.
+         */
+        mQuery.prototype.addClass = function (className) {
+            return this.each(function (i, elem) {
+                className.split(' ').forEach(function (addClass) {
+                    elem.classList.add(addClass);
+                });
+            });
+        };
+        /**
+         * Remove a single class, multiple classes, or all classes from each element in the set of matched elements.
+         * @param className One or more space-separated classes to be removed from the class attribute of each matched element.
+         */
+        mQuery.prototype.removeClass = function (className) {
+            return this.each(function (i, elem) {
+                className.split(' ').forEach(function (rmClass) {
+                    elem.classList.remove(rmClass);
+                });
+            });
+        };
+        /**
+         * Determine whether any of the matched elements are assigned the given class.
+         * @param className The class name to search for.
+         */
+        mQuery.prototype.hasClass = function (className) {
+            return some(this, function (i, elem) { return elem.classList.contains(className); });
+        };
+        /**
+         * Add or remove one or more classes from each element in the set of matched elements, depending on either the class's presence or the value of the state argument.
+         * @param className One or more class names (separated by spaces) to be toggled for each element in the matched set.
+         */
+        mQuery.prototype.toggleClass = function (className) {
+            return this.each(function (i, elem) { elem.classList.toggle(className); });
+        };
+        /**
+         * Remove the set of matched elements from the DOM.
+         * @param selector A selector expression that filters the set of matched elements to be removed.
+         */
+        mQuery.prototype.remove = function (selector) {
+            var elems = m$([], this);
+            this.each(function (i, elem) {
+                if (matches(elem, selector)) {
+                    if (elem.remove) {
+                        elem.remove();
+                    }
+                    else if (elem['removeNode']) {
+                        elem['removeNode']();
+                    }
+                    else {
+                        elem.outerHTML = '';
+                    }
+                    return;
+                }
+                elems.push(elem);
+            });
+            return elems;
+        };
+        /**
+         * Remove all child nodes of the set of matched elements from the DOM.
+         */
+        mQuery.prototype.empty = function () {
+            return this.each(function (i, elem) { elem.innerHTML = ''; });
+        };
+        mQuery.prototype.map = function (beforePush) {
+            return map(this, beforePush);
+        };
+        /**
+         * Return width of first element on list.
+         */
+        mQuery.prototype.width = function () {
+            return empty(this) ? void 0 : this[0].clientWidth;
+        };
+        /**
+         * Return height of first element on list.
+         */
+        mQuery.prototype.height = function () {
+            return empty(this) ? void 0 : this[0].clientHeight;
+        };
+        /**
+         * Merge the contents of an object onto the mQuery prototype to provide new mQuery instance methods.
+         * @param obj An object to merge onto the jQuery prototype.
+         */
+        mQuery.prototype.extend = function (obj) {
+            each(obj, function (key, value) { m$.fn[key] = value; });
+        };
+        return mQuery;
+    }());
+    m$.mQuery = mQuery;
+    m$.Class = mQuery;
+    m$.fn = mQuery.prototype;
+    m$.prototype = m$.fn;
+    m$.fn['splice'] = Array.prototype.splice;
+    /* *** ============================  Utils  ============================ *** */
     /**
-     * Each listed elements on position ascendant order.
-     * @param fn {elem, index, list} Callback for each elements
-     * @return void
+     * Verify if parameter is set (comparing with undefined).
+     * NOTE: [], 0 and "" will return true.
      */
-    MQuery.prototype.forEach = function (fn) {
-        for (var i = 0; i < this.length; ++i) {
-            fn(this[i], i, this);
-        }
-    };
+    function isSet(param) {
+        return param !== void 0;
+    }
     /**
-     * Each listed elements on position descendant order at found a positive return.
-     * @param fn {elem, index, list} Callback for each elements
-     * @return true if some iteration return true, or false if not
+     * [ONLY MQUERY] Verify if parameter is false ([], false, null, undefined, empty array-like objects).
+     * @param param Parameter to be verified.
      */
-    MQuery.prototype.some = function (fn) {
-        for (var i = this.length - 1; i >= 0; --i) {
-            if (fn(this[i], i, this)) {
+    function isFalse(param) {
+        if (isArrayLike(param)) {
+            return !param.length;
+        }
+        return !param || (param == false && param !== '0');
+    }
+    m$.isFalse = isFalse;
+    /**
+     * Verify if array-like object is empty
+     */
+    function empty(arr) {
+        return !arr || !arr.length;
+    }
+    /**
+     * Verify the type of object passed and compare.
+     */
+    function typeOf(obj, types) {
+        return types.split(' ').some(function (t) {
+            if (t === 'array-like' && isArrayLike(obj)) {
+                return true;
+            }
+            return t === type(obj);
+        });
+    }
+    /**
+     * Transform snake case string to camel case.
+     */
+    function snakeToCamelCase(s) {
+        return (s + '').replace(/(\-\w)/g, function (m) { return m[1].toUpperCase(); });
+    }
+    /**
+     * Each matched elements in descending order until found a positive return.
+    */
+    function some(arr, it) {
+        for (var i = arr.length - 1; i >= 0; --i) {
+            if (it(i, arr[i])) {
                 return true;
             }
         }
         return false;
-    };
-    /**
-     * Concat array-like elements inside current object.
-     * @param elems MQuery | Array[HTMLElement]
-     * @return MQuery instance
-     */
-    MQuery.prototype.concat = function (elems) {
-        var _this = this;
-        elems.forEach(function (elem) { _this.push(elem); });
-        return this;
-    };
-    // ====================== UTILITIES ======================= //
-    /**
-     * Verify if parameter is set (comparing with undefined).
-     * NOTE: [], 0 and "" will return true.
-     * @param param parameter to be verified
-     * @return if object is setted or not
-     */
-    MQuery.isSet = function (param) {
-        return param !== undefined;
-    };
-    /**
-     * Verify the type of object passed and compare.
-     * @param object object to be verified
-     * @param type type of object
-     * @return if object is of passed type or not
-     */
-    MQuery.typeOf = function (object, types) {
-        return types.split(' ').some(function (type) {
-            if (type === 'array') {
-                return Array.isArray(object);
-            }
-            return type === (typeof object).toLowerCase();
-        });
-    };
-    /**
-     * Verify if object is instance of type passed.
-     * @param object object to be verified
-     * @param type type of object
-     * @return if object is instance of type or not
-     */
-    MQuery.instanceOf = function (object, type) {
-        return object instanceof type;
-    };
-    /**
-     * Get the value or, if not exists, the default value.
-     * @param value value
-     * @param defaultValue default value
-     * @return value if exists or default value if not
-     */
-    MQuery.getOrDefault = function (value, defaultValue) {
-        return MQuery.isSet(value) ? value : defaultValue;
-    };
-    /**
-     * Transform snake case string to camel case.
-     * @param s snake case string
-     * @return camel case string
-     */
-    MQuery.snakeToCamelCase = function (s) {
-        return s.replace(/(\-\w)/g, function (m) { return m[1].toUpperCase(); });
-    };
-    /**
-     * Transform camel case string to snake case.
-     * @param c camel case string
-     * @return snake case string
-     */
-    MQuery.camelToSnakeCase = function (c) {
-        return c.replace(/([A-Z])/g, function (m) { return "-" + m.toLowerCase(); });
-    };
-    /**
-     * Each elements of the list calling forEach Array Function.
-     * @param list List of elements
-     * @param fn (elem, index, array) Callback for each elements
-     * @return void
-     */
-    MQuery.forEach = function (list, fn) {
-        [].forEach.call(list, fn);
-    };
-    /**
-     * [HEAVY] Each object attributes and values.
-     * @param obj Object to each
-     * @param fn ForEachIterator Callback for each elements
-     * @return void
-     */
-    MQuery.forEachObj = function (obj, fn) {
-        for (var key in obj) {
-            fn(key, obj[key]);
-        }
-    };
-    // ================== MQUERY PROPERTIES =================== //
-    /**
-     * Transform HTML/XML code to list of elements.
-     * @param code HTML/XML code
-     * @return NodeList
-     */
-    MQuery.codeToNodeList = function (code) {
-        MQuery.AUX_ELEM.innerHTML = code;
-        return MQuery.AUX_ELEM.childNodes;
-    };
+    }
     /**
      * Verify if element matches selector.
-     * @param elem element to be verified
-     * @param querySelector querySelector
-     * @return true if element matches selector, or false if not
      */
-    MQuery.matches = function (elem, querySelector) {
-        if (!MQuery.isSet(querySelector)) {
+    function matches(elem, selector) {
+        if (!isSet(selector)) {
             return true;
         }
         if (elem.matches) {
-            return elem.matches(querySelector);
+            return elem.matches(selector);
         }
-        MQuery.AUX_ELEM.innerHTML = '';
-        MQuery.AUX_ELEM.appendChild(elem);
-        return !!MQuery.AUX_ELEM.querySelector(querySelector);
-    };
+        m$.AUX_ELEM.innerHTML = '';
+        m$.AUX_ELEM.appendChild(elem);
+        return !!m$.AUX_ELEM.querySelector(selector);
+    }
     /**
      * Verify if element has parent.
-     * @param elem element to be verified
-     * @return true if has parent, or false if not
      */
-    MQuery.hasParent = function (elem) {
-        return !!elem.parentNode && elem.parentNode !== MQuery.AUX_ELEM;
-    };
+    function hasParent(elem) {
+        return !!elem.parentNode && elem.parentNode !== m$.AUX_ELEM;
+    }
     /**
      * Generate list of elements to concat.
-     * @param selector MQuery | NodeList | HTMLElement | QuerySelector | HTML String
-     * @return Array<HTMLElement>|MQuery
      */
-    MQuery.generateNodeArray = function (selector) {
-        if (!MQuery.isSet(selector)) {
-            return [];
+    function generateNodeArray(context, selector) {
+        if (typeOf(selector, 'string')) {
+            return makeArray(context.find(selector));
         }
-        if (MQuery.typeOf(selector, 'string')) {
-            try {
-                return MQuery.toArray(MQuery.DOC.querySelectorAll(selector));
-            }
-            catch (e) {
-                return MQuery.toArray(MQuery.codeToNodeList(selector));
-            }
-        }
-        if (MQuery.typeOf(selector, 'array') || MQuery.instanceOf(selector, MQuery)) {
+        if (typeOf(selector, 'array-like')) {
             return selector;
         }
         return [selector];
-    };
+    }
+    /**
+     * Add elements into instance passed by argument or return defaults.
+     */
+    function createList(inst, selector, context) {
+        // If selector not is set, return new instance
+        if (!isSet(selector)) {
+            return inst;
+        }
+        // If context not is set, create a prevObject list
+        if (!isSet(context)) {
+            // If mQuery was passed, then return this mQuery
+            if (selector instanceof mQuery) {
+                return selector;
+            }
+            // Copy prevObject property to new instance
+            inst.prevObject = selector.prevObject;
+            // Else, if selector is a array-like object
+        }
+        else if (isArrayLike(selector)) {
+            // Remove prevObject of new instance
+            delete inst.prevObject;
+        }
+        // Try create selection with querySelector function
+        try {
+            merge(inst, generateNodeArray(context || ROOT, selector));
+            // If querySelector thrown some error, try create element by HTML parser
+        }
+        catch (e) {
+            delete inst.prevObject;
+            merge(inst, makeArray(parseHTML(selector)));
+        }
+        // Return instance
+        return inst;
+    }
+    /**
+     * Generic child insertion.
+     */
+    function setChildren(rawChildren, elemInsertFn, stringInsertFn) {
+        each(rawChildren, function (i, children) {
+            // If array
+            if (typeOf(children, 'array')) {
+                return setChildren(children, elemInsertFn, stringInsertFn);
+            }
+            // If mQuery and jQuery instance
+            if (typeOf(children, 'array-like')) {
+                return children.each(function (i, child) {
+                    if (hasParent(child)) {
+                        return stringInsertFn(child.outerHTML);
+                    }
+                    elemInsertFn(child);
+                });
+            }
+            // If string
+            if (typeOf(children, 'string number')) {
+                return stringInsertFn(children);
+            }
+            // If node
+            return elemInsertFn(children);
+        });
+    }
+    /**
+     * Get data reference into element.
+     * @param elem Target.
+     * @param key Key to search or false if wants return all current processed data.
+     */
+    function dataRef(elem, key) {
+        var data = elem[m$.APP_NAME]['data'], hasAttr = elem[m$.APP_NAME]['hasAttr'];
+        !data && (data = elem[m$.APP_NAME]['data'] = {});
+        if (key) {
+            // Get by parameters if not exists
+            if (!isSet(data[key]) && isSet(elem.dataset[key])) {
+                data[key] = json(elem.dataset[key], true);
+            }
+            // Get by data
+            return data[key];
+        }
+        // Get all (by parameters if not exists)
+        if (!hasAttr && !isSet(key)) {
+            each(elem.dataset, function (key, value) {
+                !data[key] && (data[key] = json(value, true));
+            });
+            elem[m$.APP_NAME]['hasAttr'] = true;
+        }
+        return data;
+    }
+    /**
+     * Verify if object is array-like.
+     * @param obj Object to be verified.
+     */
+    function isArrayLike(obj) {
+        if (Array.isArray(obj)) {
+            return true;
+        }
+        var length = obj && obj.length, type = (typeof obj).toLowerCase();
+        if (type === 'function' || type === 'window' || type === 'string') {
+            return false;
+        }
+        return typeof length === "number" && (length === 0 || (length > 0 && (length - 1) in obj));
+    }
+    m$.isArrayLike = isArrayLike;
+    /**
+     * Merge the contents of two arrays together into the first array.
+     * @param first The first array-like object to merge, the elements of second added.
+     * @param second The second array-like object to merge into the first, unaltered.
+     */
+    function merge(first, second) {
+        if (second.forEach) {
+            second.forEach(function (elem) { first.push(elem); });
+        }
+        else if (second.each) {
+            second.each(function (i, elem) { first.push(elem); });
+        }
+        else {
+            throw Error('Concat method not found');
+        }
+        return first;
+    }
+    m$.merge = merge;
+    /**
+     * Convert an array-like object into a true JavaScript array.
+     * @param obj Any object to turn into a native Array.
+     */
+    function makeArray(obj) {
+        return Array.prototype.slice.call(obj || []);
+    }
+    m$.makeArray = makeArray;
+    /**
+     * Takes a function and returns a new one that will always have a particular context.
+     * @param target The function whose context will be changed.
+     * @param context The object to which the context (this) of the function should be set.
+     */
+    function proxy(target, context) {
+        return target.bind(context);
+    }
+    m$.proxy = proxy;
+    /**
+     * A generic iterator function, which can be used to seamlessly iterate over both objects and arrays.
+     * @param arr The array or array-like object to iterate over.
+     * @param it The function that will be executed on every value.
+     */
+    function each(arr, it) {
+        if (isArrayLike(arr)) {
+            var length_1 = arr.length;
+            for (var i = 0; i < length_1; i++) {
+                if (it.call(arr[i], i, arr[i]) === false) {
+                    break;
+                }
+            }
+        }
+        else {
+            for (var key in arr) {
+                if (it.call(arr[key], key, arr[key]) === false) {
+                    break;
+                }
+            }
+        }
+        return arr;
+    }
+    m$.each = each;
+    /**
+     * Finds the elements of an array which satisfy a filter function. The original array is not affected.
+     * @param arr The array-like object to search through.
+     * @param filter The function to process each item against.
+     * @param invert If true, the filter gonna return false to add element. Default false.
+     * @param newArr [ONLY MQUERY] Optional: List to add elements.
+     */
+    function grep(arr, filter, invert, newArr) {
+        if (invert === void 0) { invert = false; }
+        if (newArr === void 0) { newArr = []; }
+        each(arr, function (i, value) {
+            if (filter(value, i) == invert) {
+                return;
+            }
+            newArr.push(value);
+        });
+        return newArr;
+    }
+    m$.grep = grep;
+    /**
+     * Translate all items in an array or object to new array of items.
+     * @param arr The Array or object to translate.
+     * @param beforePush The function to process each item against.
+     * @param newArr [ONLY MQUERY] Optional: List to add elements.
+     */
+    function map(arr, beforePush, newArr) {
+        if (newArr === void 0) { newArr = []; }
+        each(arr, function (i, value) {
+            newArr.push(beforePush(value, i));
+        });
+        return newArr;
+    }
+    m$.map = map;
+    /**
+     * Determine the internal JavaScript [[Class]] of an object.
+     * @param obj Object to get the internal JavaScript [[Class]] of.
+     */
+    function type(obj) {
+        if (Array.isArray(obj)) {
+            return 'array';
+        }
+        return (typeof obj).toLowerCase();
+    }
+    m$.type = type;
+    /**
+     * Check to see if an object is empty (contains no enumerable properties)
+     * @param obj The object that will be checked to see if it's empty.
+     */
+    function isEmptyObject(obj) {
+        for (var _ in obj) {
+            return false;
+        }
+        return true;
+    }
+    m$.isEmptyObject = isEmptyObject;
+    /**
+     * Execute some JavaScript code globally.
+     * @param code The JavaScript code to execute.
+     */
+    function globalEval(code) {
+        var script = DOC.createElement('script');
+        script.text = code;
+        DOC.head.appendChild(script).parentNode.removeChild(script);
+    }
+    m$.globalEval = globalEval;
+    /**
+     * Transform HTML/XML code to list of elements.
+     * @param htmlString HTML/XML code.
+     */
+    function parseHTML(htmlString) {
+        m$.AUX_ELEM.innerHTML = htmlString;
+        return m$.AUX_ELEM.childNodes;
+    }
+    m$.parseHTML = parseHTML;
+    /**
+     * [ONLY MQUERY] Transforms object into string and string into object.
+     * @param objOrText Object or string.
+     * @param ignoreErr If the parse thrown an error, ignore. If 'true' objOrText will be returned.
+     * @param forceStringify Force transform any parameter (Object or string) to string.
+     */
+    function json(objOrText, ignoreErr, forceStringify) {
+        try {
+            if (typeOf(objOrText, 'string') && !forceStringify) {
+                return JSON.parse(objOrText);
+            }
+            return JSON.stringify(objOrText);
+        }
+        catch (e) {
+            if (!ignoreErr) {
+                throw e;
+            }
+            return objOrText;
+        }
+    }
+    m$.json = json;
+    function cookie(key, value, options) {
+        if (options === void 0) { options = {}; }
+        // Set cookie
+        if (isSet(value)) {
+            var expires = '';
+            // Create timeout
+            if (options.timeout) {
+                var date = new Date();
+                date.setTime(date.getTime() + (options.timeout * 1000));
+                expires = "; expires=\"" + date.toUTCString();
+            }
+            // Set cookie
+            DOC.cookie = key + "=" + json(value, true, true) + expires + "; path=" + (options.path || '/') + ";";
+            return;
+        }
+        // Get cookie
+        // Create name
+        var name = key + "=", data;
+        // Split cookies by ';'
+        var rawCookies = DOC.cookie.split(';');
+        // Find cookie with 'name'
+        each(rawCookies, function (i, cookie) {
+            cookie = cookie.trim();
+            if (cookie.indexOf(name) !== 0) {
+                return true;
+            }
+            // When find name, get data and stop each
+            data = cookie.substring(name.length, cookie.length);
+            return false;
+        });
+        // Return json or string
+        return json(data, true);
+    }
+    m$.cookie = cookie;
+    function ajax(url, settings) {
+        var _this = this;
+        if (settings === void 0) { settings = {}; }
+        var deferred = m$.Deferred(), request;
+        if (typeOf(url, 'string')) {
+            settings.url = url;
+        }
+        else {
+            settings = url;
+        }
+        each(AJAX_CONFIG, function (key, value) {
+            if (isSet(settings[key])) {
+                return;
+            }
+            settings[key] = value;
+        });
+        // Create XMLHtmlRequest
+        request = settings.xhr();
+        // Call beforeSend
+        settings.beforeSend && settings.beforeSend(request, settings);
+        // Set Method
+        settings.method = (settings.type || settings.method).toUpperCase();
+        var // Set context of callbacks
+        context = settings.context || settings, 
+        // Deferred => resolve
+        resolve = function (data) {
+            var status = request.statusText.replace(/^[\d*\s]/g, '');
+            if (isSet(settings.dataFilter)) {
+                data = settings.dataFilter(data, request.getResponseHeader('Content-Type'));
+            }
+            deferred.resolveWith(context, json(data, true), status, request);
+        }, 
+        // Deferred => reject
+        reject = function (textStatus, errorMessage) {
+            var errorThrown = request.statusText.replace(/^[\d*\s]/g, '');
+            deferred.rejectWith(context, request, textStatus, errorThrown);
+        };
+        // Set ajax default callbacks (success, error and complete)
+        deferred.then(settings.success, settings.error);
+        if (isSet(settings.complete)) {
+            deferred.done(function (data, status, request) {
+                settings.complete.apply(_this, [request, 'success']);
+            }).fail(function (request, textStatus) {
+                settings.complete.apply(_this, [request, textStatus]);
+            });
+        }
+        // Setting URL Encoded data
+        if (settings.data && settings.method === HTTP.GET) {
+            var separator = settings.url.indexOf('?') >= 0 ? '&' : '?';
+            settings.url += separator + param(settings.data);
+        }
+        // Open request
+        request.open(settings.method, settings.url, settings.async, settings.username, settings.password);
+        // Override mime type
+        if (isSet(settings.mimeType)) {
+            request.overrideMimeType(settings.mimeType);
+        }
+        // Set headers
+        request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        if (isSet(settings.headers)) {
+            each(settings.headers, function (header, value) {
+                request.setRequestHeader(header, value);
+            });
+        }
+        if (settings.contentType !== false) {
+            request.setRequestHeader('Content-Type', settings.contentType);
+        }
+        if (settings.async) {
+            // Set timeout in ms
+            request.timeout = settings.timeout;
+        }
+        else {
+            console.warn("[Deprecation] Synchronous XMLHttpRequest on the main thread " +
+                "is deprecated because of its detrimental effects to the end " +
+                "user's experience. For more help, check https://xhr.spec.whatwg.org/.");
+        }
+        // Listeners
+        request.onload = function () {
+            if (request.status === 200) {
+                resolve(request.response);
+            }
+            else {
+                reject(null, request.statusText);
+            }
+        };
+        request.onerror = function () { reject('error', 'Connection error.'); };
+        request.ontimeout = function () { reject('timeout', 'Request timed out.'); };
+        request.onabort = function () { reject('abort', 'Request aborted.'); };
+        // Proccess data
+        if (settings.method === HTTP.POST || settings.method === HTTP.PUT) {
+            request.send(param(settings.data));
+        }
+        else {
+            request.send();
+        }
+        return deferred.promise();
+    }
+    m$.ajax = ajax;
+    /**
+     * Transform Array-like objects into encodedURI.
+     */
+    function buildParam(obj, prefix, forceString) {
+        var uri = [], name, isArr = typeOf(obj, 'array'), e = encodeURIComponent;
+        each(obj, function (key, value) {
+            // If array, dont use key
+            isArr && (key = '');
+            // Get name 
+            name = (prefix || isArr) ? prefix + "[" + key + "]" : key;
+            // If string or number, set uri
+            uri.push(forceString || typeOf(value, 'string number') ?
+                e(name) + "=" + e(value) :
+                buildParam(value, name));
+        });
+        return uri.join('&');
+    }
+    /**
+     * Build default requests
+     */
+    function requestBuilder(method, urlOrSettings, dataOrSuccess, success) {
+        var settings, data;
+        if (typeOf(urlOrSettings, 'string')) {
+            settings = { url: urlOrSettings };
+        }
+        else {
+            settings = urlOrSettings;
+        }
+        if (typeOf(dataOrSuccess, 'function')) {
+            success = dataOrSuccess;
+        }
+        else {
+            data = dataOrSuccess;
+        }
+        settings.method = method;
+        settings.data = data;
+        settings.success = success;
+        return ajax(settings);
+    }
+    function get(urlOrSettings, dataOrSuccess, success) {
+        return requestBuilder(HTTP.GET, urlOrSettings, dataOrSuccess, success);
+    }
+    m$.get = get;
+    function post(urlOrSettings, dataOrSuccess, success) {
+        return requestBuilder(HTTP.POST, urlOrSettings, dataOrSuccess, success);
+    }
+    m$.post = post;
+    function param(obj, tradicional) {
+        if (tradicional === void 0) { tradicional = false; }
+        return buildParam(obj, '', tradicional);
+    }
+    m$.param = param;
     /**
      * Set event shorthand methods.
-     * @param events Array<string> Example: ['click', 'focus', 'mouseenter'] enable this shorthand methods.
-     * @return void
+     * @param events string[] Ex.: ['click', 'focus', 'mouseenter'] enable this shorthand methods.
      */
-    MQuery.setEventsShorthand = function (events) {
+    function shorthands(events) {
         events.forEach(function (event) {
-            MQuery.fn[event] = function (handler) {
-                if (!MQuery.isSet(handler)) {
+            m$.fn[event] = function (handler) {
+                if (!isSet(handler)) {
                     return this.trigger(event);
                 }
                 return this.on(event, handler);
             };
         });
-    };
+    }
+    m$.shorthands = shorthands;
     /**
-     * Export automatic mQuery instance methods to objects.
-     * Ex.: MQuery.(foo, ['click'], 'button') enables foo.click() trigger click on button tags
-     * @param target object will be receive the method
-     * @param fns array of functions will be ed
-     * @param selector selector for mQuery instance
-     * @return void
+     * A factory function that returns a chainable utility object with methods to register multiple callbacks into callback queues, invoke callback queues, and relay the success or failure state of any synchronous or asynchronous function.
+     * @param beforeStart A function that is called just before the constructor returns.
      */
-    MQuery.export = function (target, fns, selector) {
-        if (selector === void 0) { selector = []; }
-        fns.forEach(function (fn) {
-            target[fn] = function () {
-                var mQuery = new MQuery(selector);
-                mQuery[fn].apply(mQuery, arguments);
+    function Deferred(beforeStart) {
+        return new m$.Promise.Deferred(beforeStart);
+    }
+    m$.Deferred = Deferred;
+    var EMPTY = m$();
+    var ROOT = m$(DOC);
+    m$.ready = ROOT.ready;
+})(m$ || (m$ = {}));
+(function (m$) {
+    var Promise;
+    (function (Promise) {
+        var State;
+        (function (State) {
+            State["Pending"] = "pending";
+            State["Resolved"] = "resolved";
+            State["Rejected"] = "rejected";
+        })(State = Promise.State || (Promise.State = {}));
+        function call(fns, context, args) {
+            if (context === void 0) { context = this; }
+            var fnReturn;
+            fns.forEach(function (fn) {
+                fnReturn = fn.apply(context, args);
+                fnReturn !== undefined && (args = fnReturn);
+            });
+        }
+        /**
+         * Chainable utility
+         */
+        var Deferred = /** @class */ (function () {
+            function Deferred(beforeStart) {
+                this._state = State.Pending;
+                this.pipeline = { done: [], fail: [] };
+                beforeStart && beforeStart(this);
+            }
+            Deferred.prototype.changeState = function (newState, context, args) {
+                if (this._state !== State.Pending) {
+                    return false;
+                }
+                this._state = newState;
+                this.pipeline.context = context;
+                this.pipeline.args = args;
+                return true;
             };
-        });
-    };
-    /**
-     * Generic child insertion.
-     * @param rawChildren array<MQuery|HTMLElement|string> children array
-     * @param elemInsertFn function responsible to add elem child
-     * @param stringInsertFn function responsible to add string child
-     * @return void
-     */
-    MQuery.setChildren = function (rawChildren, elemInsertFn, stringInsertFn) {
-        var _this = this;
-        rawChildren.forEach(function (children) {
-            if (MQuery.instanceOf(children, MQuery)) {
-                children.each(function (i, child) {
-                    if (MQuery.hasParent(child)) {
-                        return stringInsertFn(child.outerHTML);
-                    }
-                    elemInsertFn(child);
-                });
-                return;
-            }
-            if (MQuery.typeOf(children, 'array')) {
-                return _this.setChildren(children, elemInsertFn, stringInsertFn);
-            }
-            if (MQuery.typeOf(children, 'string')) {
-                return stringInsertFn(children);
-            }
-            return elemInsertFn(children);
-        });
-    };
-    /**
-     * Shorthand to concat all elements quered values with space between them.
-     * @param fnVal function responsible to generate value
-     * @return string with values concated
-     */
-    MQuery.prototype.eachConcat = function (fnVal) {
-        var value = '';
-        this.each(function (i, elem) {
-            value += fnVal.apply(elem, [i, elem]) + " ";
-        });
-        return value.trim() || void 0;
-    };
-    /**
-     * Return all leaf elements (elements without child).
-     * @return MQuery instance
-     */
-    MQuery.prototype.leaves = function () {
-        var leaves = new MQuery([]);
-        this.each(function (i, elem) {
-            if (!elem.firstChild) {
-                leaves.push(elem);
-                return;
-            }
-            MQuery.forEach(elem.getElementsByTagName("*"), function (child) {
-                if (!child.firstElementChild) {
-                    leaves.push(child);
+            Deferred.prototype.resolve = function () {
+                var args = [];
+                for (var _i = 0; _i < arguments.length; _i++) {
+                    args[_i] = arguments[_i];
                 }
-            });
-        });
-        return leaves;
-    };
-    /**
-     * Called after DOM content finish load.
-     * @param handler event listener
-     * @return MQuery instance
-     */
-    MQuery.prototype.ready = function (handler) {
-        MQuery.DOC.addEventListener('DOMContentLoaded', handler, true);
-        return this;
-    };
-    /**
-     * Each quered elements.
-     * @param handler callback to iterate elements
-     * @return MQuery instance
-     */
-    MQuery.prototype.each = function (handler) {
-        var count = 0;
-        this.forEach(function (elem) { handler.apply(elem, [count++, elem]); });
-        return this;
-    };
-    /**
-     * Attach listeners on events passed by paramenter.
-     * @param event events separated by space
-     * @param selectOrHandler [OPTIONAL] selector to query before attach
-     * @param handler event listener
-     * @return MQuery instance
-     */
-    MQuery.prototype.on = function (event, selectOrHandler, handler) {
-        if (arguments.length === 2) {
-            handler = selectOrHandler;
-        }
-        var events = event.split(' '), elems = arguments.length === 3 ? this.find(selectOrHandler) : this;
-        elems.each(function (i, elem) {
-            events.forEach(function (event) { elem.addEventListener(event, handler, true); });
-        });
-        return this;
-    };
-    /**
-     * Detach listeners on events passed by paramenter.
-     * @param event events separated by space
-     * @param selectOrHandler [OPTIONAL] selector to query before detach
-     * @param handler event listener
-     * @return MQuery instance
-     */
-    MQuery.prototype.off = function (event, selectOrHandler, handler) {
-        if (arguments.length === 2) {
-            var handler_1 = selectOrHandler;
-        }
-        var events = event.split(' '), elems = arguments.length === 3 ? this.find(selectOrHandler) : this;
-        elems.each(function (i, elem) {
-            events.forEach(function (event) { elem.removeEventListener(event, handler, true); });
-        });
-        return this;
-    };
-    MQuery.prototype.is = function (selector) {
-        var elems = new MQuery([]);
-        this.each(function (i, elem) {
-            if (MQuery.matches(elem, selector)) {
-                elems.push(elem);
-            }
-        });
-        return elems;
-    };
-    /**
-     * Find children elements by selector.
-     * @param selector query selector
-     * @return MQuery instance
-     */
-    MQuery.prototype.find = function (selector) {
-        var elems = new MQuery([]), concat;
-        this.each(function (i, elem) {
-            try {
-                concat = elem.querySelectorAll(selector);
-                elems.concat(concat);
-            }
-            catch (e) { }
-        });
-        return elems;
-    };
-    /**
-     * Get parent element.
-     * @param selector [OPTIONAL] parent's selector
-     * @return MQuery instance
-     */
-    MQuery.prototype.parent = function (selector) {
-        var parents = new MQuery([]);
-        this.each(function (i, elem) {
-            if (!MQuery.hasParent(elem)) {
-                return false;
-            }
-            elem = elem.parentElement;
-            if (!MQuery.matches(elem, selector)) {
-                return false;
-            }
-            parents.push(elem);
-            return true;
-        });
-        return parents;
-    };
-    /**
-     * [EXPERIMENTAL] Load data inside quered elements.
-     */
-    // public load(url: string, complete?: any, error?: any): MQuery {
-    //     let fetchURL = fetch(url).then((data) => data.text());
-    //     fetchURL.then((text) => {this.html(text); });
-    //     MQuery.isSet(complete) && fetchURL.then(complete);
-    //     MQuery.isSet(error) && fetchURL.catch(error);
-    //     return this;
-    // }
-    MQuery.prototype.load = function (url, data, complete) {
-        var xhttp = new XMLHttpRequest();
-        xhttp.onreadystatechange = function () {
-            if (this.readyState == 4 && this.status == 200) {
-                document.getElementById("demo").innerHTML = this.responseText;
-            }
-        };
-        xhttp.open("GET", "ajax_info.txt", true);
-        xhttp.send();
-        return this;
-    };
-    MQuery.prototype.ajax = function (url, config) {
-        if (MQuery.instanceOf(url, Object)) {
-            config = url;
-            url = '';
-        }
-        else {
-            config.url = url;
-        }
-        var callbacks = { done: [], fail: [] };
-        MQuery.forEachObj(MQuery.AJAX_CONFIG, function (key, value) {
-            if (MQuery.isSet(config[key])) {
-                return;
-            }
-            config[key] = value;
-        });
-        // Create XMLHtmlRequest
-        var request = config.xhr();
-        // Call beforeSend
-        config.beforeSend && config.beforeSend(request, config);
-        // Set context of callbacks
-        var context = config.context || config;
-        // Set Method
-        var method = config.type || config.method;
-        var callSuccess = function (fn, data) {
-            var status = request.statusText.replace(/^[\d*\s]/g, '');
-            if (MQuery.isSet(config.dataFilter)) {
-                data = config.dataFilter(data, request.getResponseHeader('Content-Type'));
-            }
-            MQuery.callFn(fn, context, [data, status, request]);
-            MQuery.callFn(config.complete, context, [request, 'success']);
-            config.complete = function () { };
-        };
-        var callError = function (fn, textStatus, errorMessage) {
-            var errorThrown = request.statusText.replace(/^[\d*\s]/g, '');
-            MQuery.callFn(fn, context, [request, textStatus, errorThrown]);
-            MQuery.callFn(config.complete, context, [request, textStatus]);
-            config.complete = function () { };
-        };
-        var done = function () {
-            MQuery.callFns(callbacks.done, function (callback) {
-                if (request.status === 200) {
-                    callSuccess(callback, request.response);
+                args.unshift(this);
+                return this.resolveWith.apply(this, args);
+            };
+            Deferred.prototype.reject = function () {
+                var args = [];
+                for (var _i = 0; _i < arguments.length; _i++) {
+                    args[_i] = arguments[_i];
                 }
-                else {
-                    callError(callback, null, request.statusText);
+                args.unshift(this);
+                return this.rejectWith.apply(this, args);
+            };
+            Deferred.prototype.resolveWith = function (context) {
+                var args = [];
+                for (var _i = 1; _i < arguments.length; _i++) {
+                    args[_i - 1] = arguments[_i];
                 }
-            });
-        };
-        var fail = function (textStatus, errorMessage) {
-            MQuery.callFns(callbacks.fail, function (callback) {
-                callError(textStatus, errorMessage, callback);
-            });
-        };
-        var options = {
-            done: function (callback) {
-                callbacks.done.push(callback);
-                return options;
-            },
-            fail: function (callback) {
-                callbacks.fail.push(callback);
-                return options;
-            },
-            then: function (success, error) {
-                options.done(success);
-                options.fail(error);
-                return options;
-            },
-            allways: function (callback) { return options.then(callback, callback); }
-        };
-        // Open request
-        request.open(config.method, config.url, config.async, config.username, config.password);
-        // Override mime type
-        if (MQuery.isSet(config.mimeType)) {
-            request.overrideMimeType(config.mimeType);
-        }
-        // Set headers
-        request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        if (MQuery.isSet(config.headers)) {
-            MQuery.forEachObj(config.headers, function (header, value) {
-                request.setRequestHeader(header, value);
-            });
-        }
-        if (config.contentType !== false
-            && (method === 'POST' || method === 'PUT')) {
-            request.setRequestHeader('Content-Type', config.contentType);
-        }
-        // Set timeout in ms
-        request.timeout = config.timeout;
-        // Listeners
-        options.then(config.success, config.error);
-        request.onload = done;
-        request.onerror = function () { fail('error', 'Connection error.'); };
-        request.ontimeout = function () { fail('timeout', 'Request timed out.'); };
-        request.onabort = function () { fail('abort', 'Request aborted.'); };
-        // Proccess data
-        var data = config.data;
-        // Send data
-        request.send(data);
-        return options;
-    };
-    MQuery.callFn = function (fn, context, params) {
-        if (params === void 0) { params = []; }
-        if (!fn || !MQuery.typeOf(fn, 'function')) {
-            return;
-        }
-        fn.apply(context, params);
-    };
-    MQuery.callFns = function (fns, call) {
-        fns.forEach(function (fn) { call(fn); });
-    };
-    /**
-     * Trigger events.
-     * @param event event name
-     * @param data data to be passed to event
-     * @return MQuery instance
-     */
-    MQuery.prototype.trigger = function (event, data) {
-        return this.each(function (i, elem) {
-            if (event === 'focus') {
-                elem.focus();
-                return;
-            }
-            var customEvent;
-            if (window && window['CustomEvent']) {
-                customEvent = new CustomEvent(event, data);
-            }
-            else {
-                customEvent = document.createEvent(MQuery.snakeToCamelCase(event));
-                customEvent.initCustomEvent(event, true, true, data);
-            }
-            elem.dispatchEvent(customEvent);
-        });
-    };
-    MQuery.prototype.attr = function (attr, value) {
-        if (MQuery.isSet(value)) {
-            return this.each(function (i, elem) {
-                if (MQuery.isSet(elem[attr])) {
-                    elem[attr] = value;
-                    return;
+                if (this.changeState(State.Resolved, context, args)) {
+                    call(this.pipeline.done, context, args);
                 }
-                elem.setAttribute(attr, value);
-            });
-        }
-        return this.eachConcat(function (i, elem) {
-            if (MQuery.isSet(elem[attr])) {
-                return elem[attr];
-            }
-            return elem.getAttribute(attr);
-        });
-    };
-    MQuery.prototype.removeAttr = function (attr) {
-        return this.each(function (i, elem) {
-            elem.removeAttribute(attr);
-        });
-    };
-    MQuery.prototype.css = function (nameOrJSON, value) {
-        var _this = this;
-        if (!MQuery.typeOf(nameOrJSON, 'string')) {
-            MQuery.forEachObj(nameOrJSON, function (key, value) { _this.css(key, value); });
-            return this;
-        }
-        var name = MQuery.snakeToCamelCase(nameOrJSON);
-        if (MQuery.isSet(value)) {
-            return this.each(function (i, elem) {
-                elem.style[name] = value;
-            });
-        }
-        return this.eachConcat(function (i, elem) {
-            return elem.style[name];
-        });
-    };
-    MQuery.prototype.text = function (value) {
-        if (MQuery.isSet(value)) {
-            return this.each(function (i, elem) {
-                elem.textContent = value;
-            });
-        }
-        return this.eachConcat(function (i, elem) { return elem.textContent; });
-    };
-    MQuery.prototype.html = function (value) {
-        if (MQuery.isSet(value)) {
-            return this.each(function (i, elem) {
-                elem.innerHTML = value;
-            });
-        }
-        return this.eachConcat(function (i, elem) { return elem.innerHTML; });
-    };
-    MQuery.prototype.outerHtml = function (value) {
-        if (MQuery.isSet(value)) {
-            return this.each(function (i, elem) {
-                elem.outerHTML = value;
-            });
-        }
-        return this.eachConcat(function (i, elem) { return elem.outerHTML; });
-    };
-    /**
-     * Return children of all elements on list.
-     * @param selector [OPTIONAL] match children before return
-     */
-    MQuery.prototype.children = function (selector) {
-        var elems = new MQuery([]);
-        this.each(function (i, elem) { elems.concat(elem.childNodes); });
-        return selector ? elems.is(selector) : elems;
-    };
-    /**
-     * Return first element on list or undefined if list is empty.
-     */
-    MQuery.prototype.first = function () {
-        return new MQuery(this.length ? this[0] : undefined);
-    };
-    /**
-     * Return last element on list or undefined if list is empty.
-     */
-    MQuery.prototype.last = function () {
-        return new MQuery(this.length ? this[this.length - 1] : undefined);
-    };
-    /**
-     * Get all siblings.
-     * @param selector [OPTIONAL] filter siblings by selector
-     * @return MQuery instance
-     */
-    MQuery.prototype.siblings = function (selector) {
-        var siblings = new MQuery([]);
-        this.each(function (i, elem) {
-            MQuery.forEach(elem.parentElement.children, function (child) {
-                if (child === elem) {
-                    return;
+                return this;
+            };
+            Deferred.prototype.rejectWith = function (context) {
+                var args = [];
+                for (var _i = 1; _i < arguments.length; _i++) {
+                    args[_i - 1] = arguments[_i];
                 }
-                if (!MQuery.matches(child, selector)) {
-                    return;
+                if (this.changeState(State.Rejected, context, args)) {
+                    call(this.pipeline.fail, context, args);
                 }
-                siblings.push(child);
-            });
-        });
-        return siblings;
-    };
-    /**
-     * Get previous sibling.
-     * @param selector [OPTIONAL] get previous sibling matches selector
-     * @return MQuery instance
-     */
-    MQuery.prototype.prev = function (selector) {
-        var prev = new MQuery([]), prevElem;
-        this.each(function (i, elem) {
-            prevElem = elem.previousElementSibling;
-            while (prevElem && !MQuery.matches(prevElem, selector)) {
-                prevElem = prevElem.previousElementSibling;
-            }
-            prev.push(prevElem);
-        });
-        return prev;
-    };
-    /**
-     * Get next sibling.
-     * @param selector [OPTIONAL] get next sibling matches selector
-     * @return MQuery instance
-     */
-    MQuery.prototype.next = function (selector) {
-        var next = new MQuery([]), nextElem;
-        this.each(function (i, elem) {
-            nextElem = elem.nextElementSibling;
-            while (nextElem && !MQuery.matches(nextElem, selector)) {
-                nextElem = nextElem.nextElementSibling;
-            }
-            next.push(nextElem);
-        });
-        return next;
-    };
-    /**
-     * Add elements before first child.
-     * @param elem1... MQuery|element
-     * @return MQuery instance
-     */
-    MQuery.prototype.prepend = function () {
-        var rawChildren = MQuery.toArray(arguments).reverse();
-        return this.each(function (i, parent) {
-            MQuery.setChildren(rawChildren, function (child) { parent.insertBefore(child, parent.firstChild); }, function (str) { parent.insertAdjacentHTML('afterbegin', str); });
-        });
-    };
-    /**
-     * Add elements after last child.
-     * @param elem1... MQuery|Element
-     * @return MQuery instance
-     */
-    MQuery.prototype.append = function () {
-        var rawChildren = MQuery.toArray(arguments);
-        return this.each(function (i, parent) {
-            MQuery.setChildren(rawChildren, function (child) { parent.appendChild(child); }, function (str) { parent.insertAdjacentHTML('beforeend', str); });
-        });
-    };
-    MQuery.prototype.data = function (attr, value) {
-        if (!MQuery.isSet(value)) {
-            return this.attr("data-" + attr);
-        }
-        return this.attr("data-" + attr, value);
-    };
-    MQuery.prototype.val = function (value) {
-        if (!MQuery.isSet(value)) {
-            return this.attr('value');
-        }
-        return this.attr('value', value);
-    };
-    /**
-     * Add class on quered elements.
-     * @param className class name
-     * @return MQuery instance
-     */
-    MQuery.prototype.addClass = function (className) {
-        return this.each(function (i, elem) { elem.classList.add(className); });
-    };
-    /**
-     * Remove class on quered elements.
-     * @param className class name
-     * @return MQuery instance
-     */
-    MQuery.prototype.removeClass = function (className) {
-        return this.each(function (i, elem) { elem.classList.remove(className); });
-    };
-    /**
-     * Return if some quered element has the class.
-     * @param className class name
-     * @return true, if some quered element has the class, and false if not.
-     */
-    MQuery.prototype.hasClass = function (className) {
-        return this.some(function (elem) { return elem.classList.contains(className); });
-    };
-    /**
-     * Toggle class on quered elements.
-     * @param className class name
-     * @return MQuery instance
-     */
-    MQuery.prototype.toggleClass = function (className) {
-        return this.each(function (i, elem) { elem.classList.toggle(className); });
-    };
-    /**
-     * Remove elements on MQuery array.
-     * @param selector [OPTIONAL] query selector
-     */
-    MQuery.prototype.remove = function (selector) {
-        var elems = new MQuery();
-        this.each(function (i, elem) {
-            if (MQuery.matches(elem, selector)) {
-                elem.outerHTML = '';
-                return;
-            }
-            elems.push(elem);
-        });
-        return elems;
-    };
-    /**
-     * Remove all childs (including texts).
-     */
-    MQuery.prototype.empty = function () {
-        return this.each(function (i, elem) { elem.innerHTML = ''; });
-    };
-    /**
-     * Return width of first element on list.
-     */
-    MQuery.prototype.width = function () {
-        if (!this.length) {
-            return undefined;
-        }
-        return this[0].clientWidth;
-    };
-    /**
-     * Return height of first element on list.
-     */
-    MQuery.prototype.height = function () {
-        if (!this.length) {
-            return undefined;
-        }
-        return this[0].clientHeight;
-    };
-    /**
-     * CONSTANTS AND PROPERTIES
-     */
-    MQuery.APP_NAME = 'mQuery';
-    MQuery.DOC = document;
-    MQuery.AUX_ELEM = MQuery.DOC.createElement("_" + MQuery.APP_NAME + "_");
-    MQuery.fn = MQuery.prototype;
-    MQuery.AJAX_CONFIG = {
-        contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
-        method: 'GET',
-        statusCode: {},
-        xhr: function () { return new XMLHttpRequest(); },
-        url: '',
-        headers: {},
-        async: true
-    };
-    return MQuery;
-}());
-/**
- * Return instance of MQuery with elements matched.
- * @param selector selector
- * @return MQuery instance
- */
-var m$ = function (selector) { return new MQuery(selector); };
-/**
- * Return instance of MQuery with elements matched.
- * @param selector selector
- * @return MQuery instance
- */
-var mQuery = m$;
-// Export global MQuery fns
-MQuery.export(m$, ['ready', 'load']);
+                return this;
+            };
+            Deferred.prototype.state = function () {
+                return this._state;
+            };
+            Deferred.prototype.promise = function () {
+                return this;
+            };
+            Deferred.prototype.done = function (callback) {
+                if (!callback) {
+                    return this;
+                }
+                if (this.state() === State.Resolved) {
+                    callback.apply(this.pipeline.context, this.pipeline.args);
+                }
+                this.pipeline.done.push(callback);
+                return this;
+            };
+            Deferred.prototype.fail = function (callback) {
+                if (!callback) {
+                    return this;
+                }
+                if (this.state() === State.Rejected) {
+                    callback.apply(this.pipeline.context, this.pipeline.args);
+                }
+                this.pipeline.fail.push(callback);
+                return this;
+            };
+            Deferred.prototype.then = function (successFilter, errorFilter, progressFilter) {
+                return this.done(successFilter).fail(errorFilter);
+            };
+            Deferred.prototype.allways = function (callback) {
+                return this.then(callback, callback);
+            };
+            return Deferred;
+        }());
+        Promise.Deferred = Deferred;
+    })(Promise = m$.Promise || (m$.Promise = {}));
+})(m$ || (m$ = {}));

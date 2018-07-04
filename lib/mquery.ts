@@ -1,267 +1,979 @@
-type ForIterator = (value?: any, index?: number, arr?: any) => void;
-export type AJAXCallback = Function;
-export type EachIterator = (index?: number, element?: HTMLElement) => boolean | void;
-export type ForEachIterator = (key: string, value: any) => void;
-export type AJAXPromise = Promise<Object>;
-export type KeyValue = Object;
-export type AJAXConfig = {
-    beforeSend?: (XHR: XMLHttpRequest, settings: KeyValue) => void,
-    complete?: (XHR: XMLHttpRequest, textStatus: string) => void,
-    success?: (data: any, textStatus: string, XHR: XMLHttpRequest) => void,
-    error?: (XHR: XMLHttpRequest, textStatus: string, errorThrown: string) => void,
-    contentType?: false | string,
-    context?: Object,
-    data?: KeyValue | string | any[],
-    dataFilter?: (data: string, type: string) => any,
-    headers?: KeyValue,
-    method: string,
-    type?: string,
-    url?: string,
-    mimeType?: string,
-    username?: string,
-    password?: string,
-    async?: boolean,
-    //? ifModified TODO
-    statusCode?: KeyValue,
-    timeout?: number,
-    xhr?: () => XMLHttpRequest
-};
+// DEFINE GLOBAL TYPES
+export type mQuery = m$.Class;
+export type m$ = m$.Class;
 
 /**
- * MQuery, a jQuery-like lightweight framework.
+ * Binds a function to be executed when the DOM has finished loading.
+ * @param onReady The function to execute when the DOM is ready.
  */
-export class MQuery {
-    [index: string]: any;
-    [index: number]: HTMLElement;
-    /**
-     * CONSTANTS AND PROPERTIES
-     */
+export function m$(onReady: Function): mQuery;
+/**
+ * Return a collection of matched elements.
+ * @param selector A selector, DOM Element, Document, or mQuery to create instance.
+ * @param context A DOM Element, Document, or mQuery to use as context.
+ */
+export function m$(selector?: mQuery | NodeList | Node | Node[] | string, context?: mQuery | NodeList | Node | Node[] | string | boolean): mQuery;
 
-    private static readonly APP_NAME = 'mQuery';
-    private static readonly DOC = document;
-    private static readonly AUX_ELEM = MQuery.DOC.createElement(`_${MQuery.APP_NAME}_`);
-    public static readonly fn = MQuery.prototype;
-    private static AJAX_CONFIG: AJAXConfig = {
+export function m$(selector?, context?): mQuery {
+    return new mQuery.Class(selector, context);
+}
+export const mQuery = m$;
+
+export namespace m$ {
+    // Types
+    export type Class = mQuery;
+    export type Deferred = m$.Promise.Deferred;
+    export type ForEachIterator<T> = (keyOrIndex: any, value: T) => boolean | void;
+    export type EachIterator = ForEachIterator<HTMLElement>;
+    export type ArrayLikeObject = PlainObject | ArrayLike<any>;
+    export type PlainObject = {[key: string]: any, length?: number};
+    export type AJAXSuccess = (data?: any, textStatus?: string, XHR?: XMLHttpRequest) => void;
+    export type AJAXDetails = (XHR?: XMLHttpRequest, settingsOrStatus?: PlainObject | string, errorThrown?: string) => void;
+    export type AJAXSettings = {
+        method?: string,
+        beforeSend?: AJAXDetails,
+        complete?: AJAXDetails,
+        success?: AJAXSuccess,
+        error?: AJAXDetails,
+        contentType?: false | string,
+        context?: Object,
+        data?: PlainObject | string | any[],
+        dataFilter?: (data: string, type: string) => any,
+        headers?: PlainObject,
+        type?: string,
+        url?: string,
+        mimeType?: string,
+        username?: string,
+        password?: string,
+        async?: boolean,
+        //? ifModified TODO
+        statusCode?: PlainObject,
+        timeout?: number,
+        xhr?: () => XMLHttpRequest
+    };
+
+    export enum HTTP {
+        GET = 'GET',
+        HEAD = 'HEAD',
+        POST = 'POST',
+        PUT = 'PUT',
+        DELETE = 'DELETE',
+        CONNECT = 'CONNECT',
+        OPTIONS = 'OPTIONS',
+        TRACE = 'TRACE',
+        PATCH = 'PATCH'
+    }
+
+    // init constants
+    const DOC = document;
+    const AJAX_CONFIG = {
         contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
-        method: 'GET',
+        method: HTTP.GET,
         statusCode: {},
         xhr: () => new XMLHttpRequest(),
-        url: '',
         headers: {},
+        timeout: 0,
         async: true
+    };
+
+    // mQuery constants
+    export const APP_NAME = 'mQuery';
+    export const AUX_ELEM = DOC.createElement(`_${APP_NAME}_`);
+
+    /**
+     * mQuery Core.
+     */
+    export class mQuery implements ArrayLike<HTMLElement> {
+        [index: number]: HTMLElement;
+        public prevObject: mQuery;
+        public length: number = 0;
+
+        /**
+         * Constructor.
+         * @param selector mQuery | NodeList | Node | Node[] | QuerySelector | HTML String
+         */
+        constructor(selector?, context?) {
+            // If selector is a false value with no context or is document
+            if ((isFalse(selector) && !context) || selector === DOC) {
+                // Remove prevObject
+                delete this.prevObject;
+                // If selector is DOC, then add DOC into mQuery instance
+                selector === DOC && this.push(DOC);
+                // Return mQuery instance
+                return this;
+            }
+
+            // If selector is a function
+            if (typeOf(selector, 'function')) {return ROOT.ready(selector); }
+
+            let prev = createList(m$(), context);
+            this.prevObject = prev.length ? prev : ROOT;
+            createList(this, selector, this.prevObject);
+        }
+
+        // =================== ARRAY PROPERTIES =================== //
+
+        /**
+         * Insert element without repeat.
+         */
+        private push(elem: Node): this {
+            if (!elem) {return this; }
+
+            if (!elem[APP_NAME]) {
+
+                // Set APP_NAME property into Node
+                elem[APP_NAME] = {$ref: this};
+
+            } else {
+
+                // Get APP_NAME property
+                let prop = elem[APP_NAME];
+
+                // Verify if elem has been inserted inside this list before (last)
+                if (prop.$ref === this) {return this; }
+
+                // Add list reference to the element
+                prop.$ref = this;
+
+            }
+
+            // Add element increasing length
+            this[this.length++] = <HTMLElement>elem;
+
+            // Return this
+            return this;
+        }
+
+        /**
+         * Concat array-like elements inside current object.
+         */
+        private concat(elems: any): ArrayLike<HTMLElement> {
+            return merge(this, elems);
+        }
+
+        // ================== MQUERY PROPERTIES =================== //
+
+        /**
+         * [ONLY MQUERY] Return all leaf elements (elements without child).
+         */
+        public leaves(): mQuery {
+            return this.find('*').filter((i, elem) => !elem.firstElementChild);
+        }
+
+        /**
+         * Specify a function to execute when the DOM is fully loaded.
+         * @param handler A function to execute after the DOM is ready.
+         */
+        public ready(handler: EventListener): this {
+            if (DOC.readyState !== 'loading') {
+                handler(void 0);
+            } else {
+                DOC.addEventListener('DOMContentLoaded', handler);
+            }
+            return this;
+        }
+
+        /**
+         * Iterate over a mQuery object, executing a function for each matched element.
+         * @param handler A function to execute for each matched element.
+         */
+        public each(handler: EachIterator): this {
+            return <this>each(this, handler);
+        }
+
+        /**
+         * Attach an event handler function for one or more events to the selected elements.
+         * @param events One or more space-separated event types.
+         * @param selector A selector string to filter the descendants of the selected elements that trigger the event.
+         * @param handler A function to execute when the event is triggered.
+         */
+        public on(events: string, selector: string, handler: EventListener): this;
+        /**
+         * Attach an event handler function for one or more events to the selected elements.
+         * @param events One or more space-separated event types.
+         * @param handler A function to execute when the event is triggered.
+         */
+        public on(events: string, handler: EventListener): this;
+
+        public on(events: string, selector: string | EventListener, handler?: EventListener): this {
+            let $elems: mQuery = this;
+
+            if (isSet(handler)) {
+                $elems = this.find(<string>selector);
+            } else {
+                handler = <EventListener>selector;
+            }
+
+            $elems.each((i, elem) => {
+                events.split(' ').forEach((event) => {
+                    elem.addEventListener(event, handler, true);
+                });
+            });
+            return this;
+        }
+
+        /**
+         * Attach a handler to an event for the elements. The handler is executed at most once per element per event type.
+         * @param events One or more space-separated event types.
+         * @param selector A selector string to filter the descendants of the selected elements that trigger the event.
+         * @param handler A function to execute when the event is triggered.
+         */
+        public one(events: string, selector: string, handler: EventListener): this;
+        /**
+         * Attach a handler to an event for the elements. The handler is executed at most once per element per event type.
+         * @param events One or more space-separated event types.
+         * @param handler A function to execute when the event is triggered.
+         */
+        public one(events: string, handler: EventListener): this;
+
+        public one(events: string, selector: string | EventListener, handler?: EventListener): this {
+            let $elems: mQuery = this, oneHandler: EventListener;
+
+            if (isSet(handler)) {
+                $elems = this.find(<string>selector);
+            } else {
+                handler = <EventListener>selector;
+            }
+
+            events.split(' ').forEach((event) => {
+                oneHandler = function () {
+                    m$(this).off(event, oneHandler);
+                    return handler.apply(this, arguments);
+                };
+                $elems.on(event, oneHandler);
+            });
+
+            return this;
+        }
+
+        /**
+         * Remove an event handler.
+         * @param events One or more space-separated event types.
+         * @param selector A selector which should match the one originally passed to .on() when attaching event handlers.
+         * @param handler A handler function previously attached for the event(s).
+         */
+        public off(events: string, selector: string, handler: EventListener): this;
+        /**
+         * Remove an event handler.
+         * @param events One or more space-separated event types.
+         * @param handler A handler function previously attached for the event(s).
+         */
+        public off(events: string, handler: EventListener): this;
+
+        public off(events: string, selector?: string | EventListener, handler?: EventListener): this {
+            let $elems: mQuery = this;
+
+            if (isSet(handler)) {
+                $elems = this.find(<string>selector);
+            } else {
+                handler = <EventListener>selector;
+            }
+
+            $elems.each((i, elem) => {
+                events.split(' ').forEach((event) => {elem.removeEventListener(event, handler, true)});
+            });
+
+            return this;
+        }
+
+        /**
+         * Check the current matched set of elements against a selector or function.
+         * @param is (i, elem) => boolean A function used as a test for every element in the set. Within the function, "this" refers to the current DOM element.
+         */
+        public is(filter: (i, elem) => boolean): boolean;
+        /**
+         * Check the current matched set of elements against a selector or function.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        public is(selector: string): boolean;
+
+        public is(filter: any): boolean {
+            let isStr = typeOf(filter, 'string');
+            return some(this, (i, elem) => 
+                isStr ? matches(elem, filter) : filter.call(elem, i, elem)
+            );
+        }
+
+        /**
+         * Reduce the set of matched elements to those that match the selector or pass the function's test.
+         * @param filter A function used as a test for each element in the set. 'this' is the current DOM element.
+         */
+        public filter(filter: Function, context?: mQuery): mQuery;
+        /**
+         * Reduce the set of matched elements to those that match the selector or pass the function's test.
+         * @param selector A string containing a selector expression to match the current set of elements against.
+         */
+        public filter(selector: string, context?: mQuery): mQuery;
+
+        public filter(filter, context?): mQuery {
+            let elems = m$([], context || this), isStr = typeOf(filter, 'string');
+            this.each((i, elem) => {
+                if (isStr) {
+                    if (matches(elem, filter)) {
+                        elems.push(elem);
+                    }
+                } else if (filter.call(elem, i, elem)) {
+                    elems.push(elem);
+                }
+            });
+            return elems;
+        }
+
+        /**
+         * Remove elements from the set of matched elements.
+         * @param filter A function used as a test for each element in the set.
+         */
+        public not(filter: Function): mQuery;
+        /**
+         * Remove elements from the set of matched elements.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        public not(selector: string): mQuery;
+
+        public not(filter): mQuery {
+            return this.filter(typeOf(filter, 'string') ? 
+                (i, elem) => !matches(elem, filter) : 
+                (i, elem) => !filter.call(elem, i, elem)
+            );
+        }
+
+        /**
+         * Reduce the set of matched elements to those that have a descendant that matches the selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        public has(selector: string): mQuery;
+        /**
+         * Reduce the set of matched elements to those that have a descendant that matches the element.
+         * @param elem A DOM element child to match.
+         */
+        public has(elem: Node): mQuery;
+
+        public has(selector): mQuery {
+            let elems = m$([], this), isStr = typeOf(selector, 'string');
+
+            this.each((i, elem) => {
+                if (isStr ? elem.querySelector(selector) : elem.contains(selector)) {
+                    elems.push(elem);
+                }
+            });
+
+            return elems;
+        }
+
+        /**
+         * Get the descendants of each element in the current set of matched elements, filtered by a selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        public find(selector: string): mQuery {
+            let elems = m$([], this), nodeList;
+
+            this.each((i, elem) => {
+                elems.concat(elem.querySelectorAll(selector));
+            });
+
+            return elems;
+        }
+
+        /**
+         * Get the parent of each element in the current set of matched elements, optionally filtered by a selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        public parent(selector?: string): mQuery {
+            let parents = m$([], this);
+
+            this.each((i, elem) => {
+                if (!hasParent(elem)) {return; }
+                elem = elem.parentElement;
+
+                if (!matches(elem, selector)) {return; }
+
+                parents.push(elem);
+            });
+
+            return parents;
+        }
+
+        /**
+         * Get the ancestors of each element in the current set of matched elements.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        public parents(selector?: string): mQuery {
+            let parents = m$(), newParents = this.parent();
+
+            do {
+                parents.concat(newParents);
+                newParents = newParents.parent();
+            } while (newParents.length);
+
+            parents = parents.filter(selector, this);
+            return parents;
+        }
+
+        /**
+         * End the most recent filtering operation in the current chain and return the set of matched elements to its previous state.
+         */
+        public end(): mQuery {
+            return this.prevObject || EMPTY;
+        }
+
+        /**
+         * Execute all handlers and behaviors attached to the matched elements for the given event type.
+         * @param event A string containing a JavaScript event type, such as click or submit.
+         * @param params Additional parameters to pass along to the event handler.
+         */
+        public trigger(event: string, params?: PlainObject): mQuery {
+            return this.each((i, elem) => {
+                if (event === 'focus') {
+                    elem.focus();
+                    return;
+                }
+                let customEvent;
+                if (window && window['CustomEvent']) {
+                    customEvent = new CustomEvent(event, <Object>params);
+                } else {
+                    customEvent = DOC.createEvent(snakeToCamelCase(event));
+                    customEvent.initCustomEvent(event, true, true, params);
+                }
+                elem.dispatchEvent(customEvent);
+            });
+        }
+
+        /**
+         * Get the value of an attribute for the first element in the set of matched elements.
+         * @param attrName The name of the attribute to get.
+         */
+        public attr(attrName: string): string | void;
+        /**
+         * Set one or more attributes for the set of matched elements.
+         * @param attrs An object of attribute-value pairs to set.
+         */
+        public attr(attrs: PlainObject): this;
+        /**
+         * Set one or more attributes for the set of matched elements.
+         * @param attrName The name of the attribute to set.
+         * @param value A value to set for the attribute. If null, the specified attribute will be removed (as in .removeAttr()).
+         */
+        public attr(attrName: string, value: string | null): this;
+
+        public attr(attrs: PlainObject | string, value?: string | null): this | string | void {
+            // attr(attrName: string, value: string | null): this;
+            if (isSet(value)) {
+                return this.each((i, elem) => {
+                    if (value === null) { this.removeAttr(<string>attrs); }
+                    elem.setAttribute(<string>attrs, value);
+                });
+            }
+
+            // attr(attrs: PlainObject): this;
+            if (!typeOf(attrs, 'string')) {
+                each(<PlainObject>attrs, (attr, value) => {
+                    this.attr(attr, value);
+                });
+                return this;
+            }
+
+            // attr(attrName: string): string;
+            return empty(this) ? void 0 : (this[0].getAttribute(<string>attrs) || void 0);
+        }
+
+        /**
+         * Remove an attribute from each element in the set of matched elements.
+         * @param attrNames An attribute to remove, it can be a space-separated list of attributes. 
+         */
+        public removeAttr(attrNames: string): this {
+            return this.each((i, elem) => {
+                attrNames.split(' ').forEach((attrName) => {
+                    elem.removeAttribute(attrName);
+                });
+            });
+        }
+
+        /**
+         * Get the value of a property for the first element in the set of matched elements.
+         * @param propName The name of the property to get.
+         */
+        public prop(propName: string): any;
+        /**
+         * Set one or more properties for the set of matched elements.
+         * @param props An object of property-value pairs to set.
+         */
+        public prop(props: PlainObject): this;
+        /**
+         * Set one or more properties for the set of matched elements.
+         * @param propName The name of the property to set.
+         * @param value A value to set for the property.
+         */
+        public prop(propName: string, value: string): this;
+
+        public prop(props: any, value?: string): this | any {
+            // prop(propName: string, value: string): this;
+            if (isSet(value)) {
+                return this.each((i, elem) => {
+                    if (isSet(elem[props])) {
+                        elem[props] = value;
+                        return;
+                    }
+                    elem.setAttribute(props, value);
+                });
+            }
+
+            // prop(props: PlainObject): this;
+            if (!typeOf(props, 'string')) {
+                each(<PlainObject>props, (prop, value) => {
+                    this.prop(prop, value);
+                });
+                return this;
+            }
+
+            // prop(propName: string): any;
+            if (empty(this)) {return void 0; }
+            if (isSet(this[0][props])) {
+                return this[0][props];
+            }
+            return this[0].getAttribute(props) || void 0;
+        }
+
+        /**
+         * Remove a property for the set of matched elements.
+         * @param propNames An property to remove, it can be a space-separated list of attributes
+         */
+        public removeProp(propNames: string): this {
+            return this.each((i, elem) => {
+                propNames.split(' ').forEach((propName) => {
+                    if (isSet(elem[propName])) {
+                        delete elem[propName];
+                        return;
+                    }
+                    elem.removeAttribute(propName);
+                });
+            });
+        }
+
+        /**
+         * Get the computed style properties for the first element in the set of matched elements.
+         * @param propName A CSS property.
+         */
+        public css(propName: string): string;
+        /**
+         * Set one or more CSS properties for the set of matched elements.
+         * @param properties An object of property-value pairs to set.
+         */
+        public css(properties: PlainObject): this;
+        /**
+         * Set one or more CSS properties for the set of matched elements.
+         * @param propName A CSS property name.
+         * @param value A value to set for the property.
+         */
+        public css(propName: string, value: string): this;
+
+        public css(prop: any, value?: string): this | string {
+            if (!typeOf(prop, 'string')) {
+                each(prop, (key, value) => {this.css(key, value)});
+                return this;
+            }
+
+            let name = snakeToCamelCase(prop);
+            if (isSet(value)) {
+                return this.each((i, elem) => {
+                    elem.style[name] = value;
+                });
+            }
+            return empty(this) ? void 0 : this[0].style[name];
+        }
+
+        /**
+         * Get the combined text contents of each element in the set of matched elements, including their descendants.
+         */
+        public text(): string;
+        /**
+         * Set the content of each element in the set of matched elements to the specified text.
+         * @param text The text to set as the content of each matched element.
+         */
+        public text(text: string): this;
+
+        public text(text?: string): this | string {
+            if (isSet(text)) {
+                return this.each((i, elem) => {
+                    elem.textContent = text;
+                });
+            }
+            let value = '';
+            this.each((i, elem) => {
+                value += elem.textContent;
+            });
+            return value.trim() || void 0;
+        }
+
+        /**
+         * Get the HTML contents of the first element in the set of matched elements.
+         */
+        public html(): string;
+        /**
+         * Set the HTML contents of each element in the set of matched elements.
+         * @param htmlString A string of HTML to set as the content of each matched element.
+         */
+        public html(htmlString: string): this;
+
+        public html(htmlString?: string): this | string {
+            if (isSet(htmlString)) {
+                return this.each((i, elem) => {
+                    elem.innerHTML = htmlString;
+                });
+            }
+            return empty(this) ? void 0 : this[0].innerHTML;
+        }
+
+        /**
+         * Get the children of each element in the set of matched elements, optionally filtered by a selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        public children(selector?: string): mQuery {
+            let elems = m$();
+            this.each((i, elem) => {elems.concat(elem.children)});
+            return selector ? elems.filter(selector, this) : elems;
+        }
+
+        /**
+         * Reduce the set of matched elements to the first in the set.
+         */
+        public first(): mQuery {
+            return m$(empty(this) ? void 0 : this[0]);
+        }
+
+        /**
+         * Reduce the set of matched elements to the final one in the set.
+         */
+        public last(): mQuery {
+            return m$(empty(this) ? void 0 : this[this.length - 1]);
+        }
+
+        /**
+         * Get the siblings of each element in the set of matched elements, optionally filtered by a selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        public siblings(selector?: string): mQuery {
+            let siblings = m$([], this);
+            this.each((i, elem) => {
+                each(elem.parentElement.children, (i, child) => {
+                    if (child === elem) { return; }
+                    if (!matches(child, selector)) { return; }
+                    siblings.push(child);
+                });
+            });
+            return siblings;
+        }
+
+        /**
+         * Get the immediately preceding sibling of each element in the set of matched elements. If a selector is provided, it retrieves the previous sibling only if it matches that selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        public prev(selector?: string): mQuery {
+            let prev = m$([], this);
+            this.each((i, elem) => {
+                let prevElem = elem.previousElementSibling;
+                if (matches(prevElem, selector)) {
+                    prev.push(prevElem);
+                }
+                prev.push(prevElem);
+            });
+            return prev;
+        }
+
+        /**
+         * Get the immediately following sibling of each element in the set of matched elements. If a selector is provided, it retrieves the next sibling only if it matches that selector.
+         * @param selector A string containing a selector expression to match elements against.
+         */
+        public next(selector?: string): mQuery {
+            let next = m$([], this);
+            this.each((i, elem) => {
+                let nextElem = elem.nextElementSibling;
+                if (matches(nextElem, selector)) {
+                    next.push(nextElem);
+                }
+            }); 
+            return next;
+        }
+
+        /**
+         * Insert content, specified by the parameter, to the beginning of each element in the set of matched elements.
+         * @param contents DOM element, text node, array of elements and text nodes, HTML string, or mQuery object to insert at the beginning of each element in the set of matched elements.
+         */
+        public prepend(...contents): this {
+            let rawChildren = contents.reverse();
+            return this.each((i, parent) => {
+                setChildren(rawChildren,
+                    (child) => {parent.insertBefore(child, parent.firstChild)},
+                    (str) => {parent.insertAdjacentHTML('afterbegin', str)});
+            });
+        }
+
+        /**
+         * Insert content, specified by the parameter, to the end of each element in the set of matched elements.
+         * @param contents DOM element, text node, array of elements and text nodes, HTML string, or mQuery object to insert at the end of each element in the set of matched elements.
+         */
+        public append(...contents): this {
+            return this.each((i, parent) => {
+                setChildren(contents,
+                    (child) => {parent.appendChild(child)},
+                    (str) => {parent.insertAdjacentHTML('beforeend', str)});
+            });
+        }
+
+        /**
+         * Return the values store for the first element in the collection.
+         * @param key A string naming the piece of data to set.
+         * @param value The new data value; this can be any Javascript type except undefined.
+         */
+        public data(): any;
+        /**
+         * Store arbitrary data associated with the matched elements.
+         * @param obj An object of key-value pairs of data to update.
+         */
+        public data(obj: PlainObject): this;
+        /**
+         * Return the value at the named data store for the first element in the collection, as set by data(name, value) or by an HTML5 data-* attribute.
+         * @param key Name of the data stored.
+         */
+        public data(key: string | number): any;
+        /**
+         * Store arbitrary data associated with the matched elements.
+         * @param key A string naming the piece of data to set.
+         * @param value The new data value; this can be any Javascript type except undefined.
+         */
+        public data(key: string | number, value: any): this;
+
+        public data(keyOrObj?: any, value?: any): this | any {
+            if (empty(this)) {return void 0; }
+
+            // data(): any;
+            if (!isSet(keyOrObj)) {
+                return dataRef(this[0]);
+            }
+
+            // data(key: string | number, value: any): this;
+            if (isSet(value)) {
+                return this.each((i, elem) => {
+                    dataRef(elem, false)[keyOrObj] = value;
+                });
+            }
+
+            // data(key: string | number): any;
+            if (typeOf(keyOrObj, 'string number')) {
+                return dataRef(this[0], keyOrObj);
+            }
+            
+            // data(obj: Object): this;
+            each(keyOrObj, (key, value) => {
+                this.data(key, value);
+            });
+
+            return this;
+        }
+
+        /**
+         * Get the current value of the first element in the set of matched elements.
+         */
+        public val(): string;
+        /**
+         * Set the value of each element in the set of matched elements.
+         * @param value A string of text or a number corresponding to the value of each matched element to set as selected/checked.
+         */
+        public val(value: string): this;
+
+        public val(value?: string): this | string {
+            if (!isSet(value)) {
+                return this.prop('value');
+            }
+            return this.prop('value', value);
+        }
+
+        /**
+         * Adds the specified class(es) to each element in the set of matched elements.
+         * @param className One or more space-separated classes to be added to the class attribute of each matched element.
+         */
+        public addClass(className: string): this {
+            return this.each((i, elem) => {
+                className.split(' ').forEach((addClass) => {
+                    elem.classList.add(addClass);
+                });
+            });
+        }
+
+        /**
+         * Remove a single class, multiple classes, or all classes from each element in the set of matched elements.
+         * @param className One or more space-separated classes to be removed from the class attribute of each matched element.
+         */
+        public removeClass(className: string): this {
+            return this.each((i, elem) => {
+                className.split(' ').forEach((rmClass) => {
+                    elem.classList.remove(rmClass);
+                });
+            });
+        }
+
+        /**
+         * Determine whether any of the matched elements are assigned the given class.
+         * @param className The class name to search for.
+         */
+        public hasClass(className: string): boolean {
+            return some(this, (i, elem) => elem.classList.contains(className));
+        }
+
+        /**
+         * Add or remove one or more classes from each element in the set of matched elements, depending on either the class's presence or the value of the state argument.
+         * @param className One or more class names (separated by spaces) to be toggled for each element in the matched set.
+         */
+        public toggleClass(className: string): this {
+            return this.each((i, elem) => { elem.classList.toggle(className) });
+        }
+
+        /**
+         * Remove the set of matched elements from the DOM.
+         * @param selector A selector expression that filters the set of matched elements to be removed.
+         */
+        public remove(selector?: string): mQuery {
+            let elems = m$([], this);
+            this.each((i, elem) => {
+                if (matches(elem, selector)) {
+                    if (elem.remove) {
+                        elem.remove();
+                    } else if (elem['removeNode']) {
+                        elem['removeNode']();
+                    } else {
+                        elem.outerHTML = '';
+                    }
+                    return;
+                }
+                elems.push(elem);
+            });
+            return elems;
+        }
+
+        /**
+         * Remove all child nodes of the set of matched elements from the DOM.
+         */
+        public empty(): this {
+            return this.each((i, elem) => {elem.innerHTML = ''});
+        }
+
+        public map(beforePush: (value, index) => any): Array<any> {
+            return map(this, beforePush);
+        }
+
+        /**
+         * Return width of first element on list.
+         */
+        public width(): number {
+            return empty(this) ? void 0 : this[0].clientWidth;
+        }
+
+        /**
+         * Return height of first element on list.
+         */
+        public height(): number {
+            return empty(this) ? void 0 : this[0].clientHeight;
+        }
+
+        /**
+         * Merge the contents of an object onto the mQuery prototype to provide new mQuery instance methods.
+         * @param obj An object to merge onto the jQuery prototype.
+         */
+        public extend(obj: Object): void {
+            each(obj, (key, value) => {fn[key] = value});
+        }
     }
-    public length = 0;
+
     
-    /**
-     * Default constructor.
-     * @param selector MQuery | NodeList | Node | Array<Node> | QuerySelector | HTML String
-     */
-    constructor(selector?: any) {
-        let elems: Array<HTMLElement> | MQuery;
+    export const Class = mQuery;
+    export const fn = mQuery.prototype;
+    export const prototype = fn;
 
-        if (MQuery.typeOf(selector, 'function')) {
-            elems = MQuery.generateNodeArray();
-            this.ready(selector);
-        } else {
-            elems = MQuery.generateNodeArray(selector);
-        }
+    fn['splice'] = Array.prototype.splice;
 
-        this.concat(elems);
-    }
-
-    // =================== ARRAY PROPERTIES =================== //
-
-    /**
-     * Transform object parameter to Array.
-     * @param obj object must be array compatible
-     * @return Array
-     */
-    private static toArray(obj: any): Array<any> {
-        return [].slice.call(obj || []);
-    }
-
-    /**
-     * Insert element on internal list.
-     * @param elem element
-     * @return MQuery instance
-     */
-    private push(elem: any): MQuery {
-        // Verify if elem has been inserted inside this list before
-        if (!elem || elem[MQuery.APP_NAME] === this) {return this; }
-        this[this.length++] = elem;
-        // Add list reference to the elem
-        elem[MQuery.APP_NAME] = this;
-        return this;
-    }
-
-    /**
-     * Each listed elements on position ascendant order.
-     * @param fn {elem, index, list} Callback for each elements
-     * @return void
-     */
-    private forEach(fn: ForIterator): void {
-        for (let i = 0; i < this.length; ++i) {
-            fn(this[i], i, this);
-        }
-    }
-
-    /**
-     * Each listed elements on position descendant order at found a positive return.
-     * @param fn {elem, index, list} Callback for each elements
-     * @return true if some iteration return true, or false if not
-     */
-    private some(fn: ForIterator): boolean { 
-        for (let i = this.length - 1; i >= 0; --i) { 
-            if (fn(this[i], i, this)) {return true; } 
-        } 
-        return false; 
-    } 
-
-    /**
-     * Concat array-like elements inside current object.
-     * @param elems MQuery | Array[HTMLElement]
-     * @return MQuery instance
-     */
-    private concat(elems: any): MQuery {
-        elems.forEach((elem) => {this.push(elem)});
-        return this;
-    }
-
-    // ====================== UTILITIES ======================= //
+    /* *** ============================  Utils  ============================ *** */
 
     /**
      * Verify if parameter is set (comparing with undefined).
      * NOTE: [], 0 and "" will return true.
-     * @param param parameter to be verified
-     * @return if object is setted or not
      */
-    public static isSet(param: any): boolean {
-        return param !== undefined;
+    function isSet(param: any): boolean {
+        return param !== void 0;
+    }
+
+    /**
+     * [ONLY MQUERY] Verify if parameter is false ([], false, null, undefined, empty array-like objects).
+     * @param param Parameter to be verified.
+     */
+    export function isFalse(param: any): boolean {
+        if (isArrayLike(param)) {
+            return !param.length;
+        }
+        return !param || (param == false && param !== '0');
+    }
+
+    /**
+     * Verify if array-like object is empty
+     */
+    function empty(arr: ArrayLike<any>): boolean {
+        return !arr || !arr.length;
     }
 
     /**
      * Verify the type of object passed and compare.
-     * @param object object to be verified
-     * @param type type of object
-     * @return if object is of passed type or not
      */
-    public static typeOf(object: any, types: string): boolean {
-        return types.split(' ').some((type) => {
-            if (type === 'array') {return Array.isArray(object); }
-            return type === (typeof object).toLowerCase();
+    function typeOf(obj: any, types: string): boolean {
+        return types.split(' ').some((t) => {
+            if (t === 'array-like' && isArrayLike(obj)) {
+                return true;
+            }
+            return t === type(obj);
         });
     }
 
     /**
-     * Verify if object is instance of type passed.
-     * @param object object to be verified
-     * @param type type of object
-     * @return if object is instance of type or not
-     */
-    public static instanceOf(object: any, type: any): boolean {
-        return object instanceof type;
-    }
-    
-    /**
-     * Get the value or, if not exists, the default value.
-     * @param value value
-     * @param defaultValue default value
-     * @return value if exists or default value if not
-     */
-    public static getOrDefault(value: any, defaultValue: any): any {
-        return MQuery.isSet(value) ? value : defaultValue;
-    }
-
-    /**
      * Transform snake case string to camel case.
-     * @param s snake case string
-     * @return camel case string
      */
-    public static snakeToCamelCase(s: string): string {
-        return s.replace(/(\-\w)/g, (m) => m[1].toUpperCase());
+    function snakeToCamelCase(s: string | number): string {
+        return (s+'').replace(/(\-\w)/g, (m) => m[1].toUpperCase());
     }
 
     /**
-     * Transform camel case string to snake case.
-     * @param c camel case string
-     * @return snake case string
-     */
-    public static camelToSnakeCase(c: string): string {
-        return c.replace(/([A-Z])/g, (m) => `-${m.toLowerCase()}`);
-    }
-
-    /**
-     * Each elements of the list calling forEach Array Function.
-     * @param list List of elements
-     * @param fn (elem, index, array) Callback for each elements
-     * @return void
-     */
-    public static forEach(list: any, fn: any): void { 
-        [].forEach.call(list, fn); 
-    } 
-
-    /**
-     * [HEAVY] Each object attributes and values.
-     * @param obj Object to each
-     * @param fn ForEachIterator Callback for each elements
-     * @return void
-     */
-    public static forEachObj(obj: KeyValue, fn: ForEachIterator): void {
-        for (let key in obj) {fn(key, obj[key]); }
-    }
-
-    // ================== MQUERY PROPERTIES =================== //
-
-    /**
-     * Transform HTML/XML code to list of elements.
-     * @param code HTML/XML code
-     * @return NodeList
-     */
-    private static codeToNodeList(code: string): NodeList {
-        MQuery.AUX_ELEM.innerHTML = code;
-        return MQuery.AUX_ELEM.childNodes;
+     * Each matched elements in descending order until found a positive return.
+    */
+    function some(arr: ArrayLike<any>, it: ForEachIterator<any>): boolean {
+        for (let i = arr.length - 1; i >= 0; --i) {
+            if (it(i, arr[i])) {return true; }
+        }
+        return false;
     }
 
     /**
      * Verify if element matches selector.
-     * @param elem element to be verified
-     * @param querySelector querySelector
-     * @return true if element matches selector, or false if not
      */
-    private static matches(elem: Element, querySelector: string): boolean {
-        if (!MQuery.isSet(querySelector)) {return true; }
-        if (elem.matches) {return elem.matches(querySelector); }
-        MQuery.AUX_ELEM.innerHTML = '';
-        MQuery.AUX_ELEM.appendChild(elem);
-        return !!MQuery.AUX_ELEM.querySelector(querySelector);
+    function matches(elem: Element, selector: string): boolean {
+        if (!isSet(selector)) { return true; }
+        if (elem.matches) { return elem.matches(selector); }
+        AUX_ELEM.innerHTML = '';
+        AUX_ELEM.appendChild(elem);
+        return !!AUX_ELEM.querySelector(selector);
     }
 
     /**
      * Verify if element has parent.
-     * @param elem element to be verified
-     * @return true if has parent, or false if not 
      */
-    private static hasParent(elem: Node): boolean {
-        return !!elem.parentNode && elem.parentNode !== MQuery.AUX_ELEM;
+    function hasParent(elem: Node): boolean {
+        return !!elem.parentNode && elem.parentNode !== AUX_ELEM;
     }
 
     /**
      * Generate list of elements to concat.
-     * @param selector MQuery | NodeList | HTMLElement | QuerySelector | HTML String
-     * @return Array<HTMLElement>|MQuery
      */
-    private static generateNodeArray(selector?: any): Array<HTMLElement> | MQuery {
-        if (!MQuery.isSet(selector)) {return []; }
-
-        if (MQuery.typeOf(selector, 'string')) {
-            try {
-                return MQuery.toArray(MQuery.DOC.querySelectorAll(selector));
-            } catch (e) {
-                return MQuery.toArray(MQuery.codeToNodeList(selector));
-            }
+    function generateNodeArray(context: mQuery, selector: any): HTMLElement[] | mQuery {
+        if (typeOf(selector, 'string')) {
+            return makeArray(context.find(selector));
         }
 
-        if (MQuery.typeOf(selector, 'array') || MQuery.instanceOf(selector, MQuery)) {
+        if (typeOf(selector, 'array-like')) {
             return selector;
         }
 
@@ -269,14 +981,532 @@ export class MQuery {
     }
 
     /**
-     * Set event shorthand methods.
-     * @param events Array<string> Example: ['click', 'focus', 'mouseenter'] enable this shorthand methods.
-     * @return void
+     * Add elements into instance passed by argument or return defaults.
      */
-    public static setEventsShorthand(events: Array<string>): void {
+    function createList(inst: mQuery, selector: any, context?: any): mQuery {
+        // If selector not is set, return new instance
+        if (!isSet(selector)) {return inst; }
+
+        // If context not is set, create a prevObject list
+        if (!isSet(context)) {
+            // If mQuery was passed, then return this mQuery
+            if (selector instanceof mQuery) {return selector; }
+
+            // Copy prevObject property to new instance
+            inst.prevObject = selector.prevObject;
+
+        // Else, if selector is a array-like object
+        } else if (isArrayLike(selector)) {
+            // Remove prevObject of new instance
+            delete inst.prevObject;
+        }
+
+        // Try create selection with querySelector function
+        try {
+            merge(inst, generateNodeArray(context || ROOT, selector));
+
+        // If querySelector thrown some error, try create element by HTML parser
+        } catch (e) {
+            delete inst.prevObject;
+            merge(inst, makeArray(parseHTML(selector)));
+        }
+
+        // Return instance
+        return inst;
+    }
+
+    /**
+     * Generic child insertion.
+     */
+    function setChildren(rawChildren: any, elemInsertFn: Function, stringInsertFn: Function): void {
+        each(rawChildren, (i, children) => {
+            // If array
+            if (typeOf(children, 'array')) {
+                return setChildren(children, elemInsertFn, stringInsertFn);
+            }
+
+            // If mQuery and jQuery instance
+            if (typeOf(children, 'array-like')) {
+                return children.each((i, child) => {
+                    if (hasParent(child)) {
+                        return stringInsertFn(child.outerHTML);
+                    }
+                    elemInsertFn(child);
+                });
+            }
+
+            // If string
+            if (typeOf(children, 'string number')) {
+                return stringInsertFn(children);
+            }
+
+            // If node
+            return elemInsertFn(children);
+        });
+    }
+
+    /**
+     * Get data reference into element.
+     * @param elem Target.
+     * @param key Key to search or false if wants return all current processed data.
+     */
+    function dataRef(elem: HTMLElement, key?: any): Object {
+        let data = elem[APP_NAME]['data'], hasAttr = elem[APP_NAME]['hasAttr'];
+        !data && (data = elem[APP_NAME]['data'] = {});
+
+        if (key) {
+            // Get by parameters if not exists
+            if (!isSet(data[key]) && isSet(elem.dataset[key])) {
+                data[key] = json(elem.dataset[key], true);
+            }
+
+            // Get by data
+            return data[key];
+        }
+        
+        // Get all (by parameters if not exists)
+        if (!hasAttr && !isSet(key)) {
+            each(elem.dataset, (key, value) => {
+                !data[key] && (data[key] = json(value, true));
+            });
+            elem[APP_NAME]['hasAttr'] = true;
+        }
+        return data;
+    }
+
+    /**
+     * Verify if object is array-like.
+     * @param obj Object to be verified.
+     */
+    export function isArrayLike(obj): boolean {
+        if (Array.isArray(obj)) {return true; }
+
+        var length = obj && obj.length,
+            type = (typeof obj).toLowerCase();
+        if (type === 'function' || type === 'window' || type === 'string') {
+            return false;
+        }
+        return typeof length === "number" && (length === 0 || (length > 0  && (length - 1) in obj));
+    }
+
+    /**
+     * Merge the contents of two arrays together into the first array.
+     * @param first The first array-like object to merge, the elements of second added.
+     * @param second The second array-like object to merge into the first, unaltered.
+     */
+    export function merge(first: any, second: any): ArrayLike<any> {
+        if (second.forEach) {
+            second.forEach((elem) => {first.push(elem)});
+        } else if (second.each) {
+            second.each((i, elem) => {first.push(elem)});
+        } else {
+            throw Error('Concat method not found');
+        }
+        return first;
+    }
+
+    /**
+     * Convert an array-like object into a true JavaScript array.
+     * @param obj Any object to turn into a native Array.
+     */
+    export function makeArray(obj: ArrayLike<any>): any[] {
+        return Array.prototype.slice.call(obj || []);
+    }
+
+    /**
+     * Takes a function and returns a new one that will always have a particular context.
+     * @param target The function whose context will be changed.
+     * @param context The object to which the context (this) of the function should be set.
+     */
+    export function proxy(target: Function, context: any): Function {
+        return target.bind(context);
+    }
+
+    /**
+     * A generic iterator function, which can be used to seamlessly iterate over both objects and arrays.
+     * @param arr The array or array-like object to iterate over.
+     * @param it The function that will be executed on every value.
+     */
+    export function each(arr: ArrayLikeObject, it: ForEachIterator<any>): ArrayLikeObject {
+        if (isArrayLike(arr)) {
+            let length = arr.length;
+            for (let i = 0; i < length; i++) {
+                if (it.call(arr[i], i, arr[i]) === false) {break; }
+            }
+        } else {
+            for (let key in arr) {
+                if (it.call(arr[key], key, arr[key]) === false) {break; }
+            }
+        }
+        return arr;
+    }
+
+    /**
+     * Finds the elements of an array which satisfy a filter function. The original array is not affected.
+     * @param arr The array-like object to search through.
+     * @param filter The function to process each item against.
+     * @param invert If true, the filter gonna return false to add element. Default false.
+     * @param newArr [ONLY MQUERY] Optional: List to add elements.
+     */
+    export function grep(arr: ArrayLike<any>, filter: (value, index) => boolean | void, invert = false, newArr: any = []): ArrayLike<any> {
+        each(arr, (i, value) => {
+            if (filter(value, i) == invert) {return; }
+            newArr.push(value);
+        });
+        return newArr;
+    }
+
+    /**
+     * Translate all items in an array or object to new array of items.
+     * @param arr The Array or object to translate.
+     * @param beforePush The function to process each item against.
+     * @param newArr [ONLY MQUERY] Optional: List to add elements.
+     */
+    export function map(arr: ArrayLikeObject, beforePush: (value, index) => any, newArr = []): any[] {
+        each(arr, (i, value) => {
+            newArr.push(beforePush(value, i));
+        });
+        return newArr;
+    }
+
+    /**
+     * Determine the internal JavaScript [[Class]] of an object.
+     * @param obj Object to get the internal JavaScript [[Class]] of.
+     */
+    export function type(obj: any): string {
+        if (Array.isArray(obj)) {return 'array'; }
+        return (typeof obj).toLowerCase();
+    }
+
+    /**
+     * Check to see if an object is empty (contains no enumerable properties)
+     * @param obj The object that will be checked to see if it's empty.
+     */
+    export function isEmptyObject(obj): boolean {
+		for (let _ in obj) {return false; }
+		return true;
+    }
+
+    /**
+     * Execute some JavaScript code globally.
+     * @param code The JavaScript code to execute.
+     */
+    export function globalEval(code: string): void {
+        const script = DOC.createElement('script');
+        script.text = code;
+        DOC.head.appendChild(script).parentNode.removeChild(script);
+    }
+
+    /**
+     * Transform HTML/XML code to list of elements.
+     * @param htmlString HTML/XML code.
+     */
+    export function parseHTML(htmlString: string): NodeList {
+        AUX_ELEM.innerHTML = htmlString;
+        return AUX_ELEM.childNodes;
+    }
+
+    /**
+     * [ONLY MQUERY] Transforms object into string and string into object. 
+     * @param objOrText Object or string.
+     * @param ignoreErr If the parse thrown an error, ignore. If 'true' objOrText will be returned.
+     * @param forceStringify Force transform any parameter (Object or string) to string.
+     */
+    export function json(objOrText: Object | string, ignoreErr: boolean, forceStringify?: boolean): Object | string {
+        try {
+            if (typeOf(objOrText, 'string') && !forceStringify) {
+                return JSON.parse(<string>objOrText);
+            }
+            return JSON.stringify(objOrText);
+        } catch (e) {
+            if (!ignoreErr) {throw e; }
+            return objOrText;
+        }
+    }
+
+    /**
+     * [ONLY MQUERY] Get cookie by key.
+     * @param key Cookie key.
+     */
+    export function cookie(key: string): any;
+    /**
+     * [ONLY MQUERY] Set cookie by key.
+     * @param key Cookie key.
+     * @param value Cookie value.
+     */
+    export function cookie(key: string, value: any): void;
+    /**
+     * [ONLY MQUERY] Set cookie by key with options.
+     * @param key Cookie key.
+     * @param value Cookie value.
+     * @param options {timeout?, path?} Set timeout in seconds and path of your new cookie.
+     */
+    export function cookie(key: string, value: any, options: {timeout?: number, path?: string}): void;
+
+    export function cookie(key: string, value?: any, options: any = {}): any {
+        // Set cookie
+        if (isSet(value)) {
+            let expires = '';
+            // Create timeout
+            if (options.timeout) {
+                let date = new Date();
+                date.setTime(date.getTime() + (options.timeout * 1000));
+                expires = `; expires="${date.toUTCString()}`;
+            }
+
+            // Set cookie
+            DOC.cookie = `${key}=${json(value, true, true)}${expires}; path=${options.path || '/'};`;
+            return;
+        }
+
+        // Get cookie
+        // Create name
+        let name = `${key}=`, data;
+
+        // Split cookies by ';'
+        let rawCookies = DOC.cookie.split(';');
+
+        // Find cookie with 'name'
+        each(rawCookies, (i, cookie) => {
+            cookie = cookie.trim();
+            if (cookie.indexOf(name) !== 0) {return true; }
+
+            // When find name, get data and stop each
+            data = cookie.substring(name.length, cookie.length);
+            return false;
+        });
+
+        // Return json or string
+        return json(data, true);
+    }
+
+    /* *** ============================ mQuery ============================ *** */
+
+    /**
+     * Perform an asynchronous HTTP (Ajax) request.
+     * @param url A string containing the URL to which the request is sent.
+     */
+    export function ajax(url: string): Deferred;
+    /**
+     * @param settings AJAX options.
+     */
+    export function ajax(settings: AJAXSettings): Deferred;
+    /**
+     * @param url A string containing the URL to which the request is sent.
+     * @param settings AJAX options.
+     */
+    export function ajax(url: string, settings: AJAXSettings): Deferred;
+
+    export function ajax(url: string | AJAXSettings, settings: AJAXSettings = {}): Deferred {
+        let deferred = m$.Deferred(), request;
+
+        if (typeOf(url, 'string')) {
+            settings.url = <string>url;
+        } else {
+            settings = <AJAXSettings>url;
+        }
+
+        each(AJAX_CONFIG, (key, value) => {
+            if (isSet(settings[key])) {return; }
+            settings[key] = value;
+        });
+
+        // Create XMLHtmlRequest
+        request = settings.xhr();
+
+        // Call beforeSend
+        settings.beforeSend && settings.beforeSend(request, settings);
+        // Set Method
+        settings.method = (settings.type || settings.method).toUpperCase();
+
+        let // Set context of callbacks
+            context = settings.context || settings,
+
+            // Deferred => resolve
+            resolve = (data) => {
+                let status = request.statusText.replace(/^[\d*\s]/g, '');
+                if (isSet(settings.dataFilter)) {
+                    data = settings.dataFilter(data, request.getResponseHeader('Content-Type'));
+                }
+                deferred.resolveWith(context, json(data, true), status, request);
+            },
+
+            // Deferred => reject
+            reject = (textStatus, errorMessage) => {
+                let errorThrown = request.statusText.replace(/^[\d*\s]/g, '');
+                deferred.rejectWith(context, request, textStatus, errorThrown);
+            };
+
+        // Set ajax default callbacks (success, error and complete)
+        deferred.then(settings.success, settings.error);
+        if (isSet(settings.complete)) {
+            deferred.done((data, status, request) => {
+                settings.complete.apply(this, [request, 'success']);
+            }).fail((request, textStatus) => {
+                settings.complete.apply(this, [request, textStatus]);
+            });
+        }
+
+        // Setting URL Encoded data
+        if (settings.data && settings.method === HTTP.GET) {
+            let separator = settings.url.indexOf('?') >= 0 ? '&' : '?';
+            settings.url += separator + param(settings.data);
+        }
+
+        // Open request
+        request.open(settings.method, settings.url, settings.async, settings.username, settings.password);
+
+        // Override mime type
+        if (isSet(settings.mimeType)) {
+            request.overrideMimeType(settings.mimeType);
+        }
+
+        // Set headers
+        request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        if (isSet(settings.headers)) {
+            each(settings.headers, (header, value) => {
+                request.setRequestHeader(header, value);
+            });
+        }
+        if (settings.contentType !== false) {
+            request.setRequestHeader('Content-Type', settings.contentType);
+        }
+
+        if (settings.async) {
+            // Set timeout in ms
+            request.timeout = settings.timeout;
+        } else {
+            console.warn(
+                "[Deprecation] Synchronous XMLHttpRequest on the main thread " +
+                "is deprecated because of its detrimental effects to the end " +
+                "user's experience. For more help, check https://xhr.spec.whatwg.org/.");
+        }
+
+        // Listeners
+        request.onload = () => {
+            if (request.status === 200) {
+                resolve(request.response);
+            } else {
+                reject(null, request.statusText);
+            }
+        };
+        request.onerror = () => {reject('error', 'Connection error.')};
+        request.ontimeout = () => {reject('timeout', 'Request timed out.')};
+        request.onabort = () => {reject('abort', 'Request aborted.')};
+
+        // Proccess data
+        if (settings.method === HTTP.POST || settings.method === HTTP.PUT) {
+            request.send(param(settings.data));
+        } else {
+            request.send();
+        }
+
+        return deferred.promise();
+    }
+
+    /**
+     * Transform Array-like objects into encodedURI.
+     */
+    function buildParam(obj: ArrayLikeObject, prefix, forceString?: boolean): string {
+        let uri = [], name, isArr = typeOf(obj, 'array'), e = encodeURIComponent;
+        each(obj, (key, value) => {
+            // If array, dont use key
+            isArr && (key = '');
+
+            // Get name 
+            name = (prefix || isArr) ? `${prefix}[${key}]` : key;
+
+            // If string or number, set uri
+            uri.push(forceString || typeOf(value, 'string number') ? 
+                `${e(name)}=${e(value)}` :
+                buildParam(value, name));
+        });
+        return uri.join('&');
+    }
+
+    /**
+     * Build default requests
+     */
+    function requestBuilder(method, urlOrSettings, dataOrSuccess?, success?): Deferred {
+        let settings: AJAXSettings, data;
+
+        if (typeOf(urlOrSettings, 'string')) {
+            settings = <AJAXSettings>{url: urlOrSettings};
+        } else {
+            settings = <AJAXSettings>urlOrSettings;
+        }
+
+        if (typeOf(dataOrSuccess, 'function')) {
+            success = dataOrSuccess;
+        } else {
+            data = dataOrSuccess;
+        }
+
+        settings.method = method;
+        settings.data = data;
+        settings.success = success;
+
+        return ajax(settings);
+    }
+
+    /**
+     * Load data from the server using a HTTP GET request.
+     * @param url A string containing the URL to which the request is sent.
+     * @param success A callback function that is executed if the request succeeds.
+     */
+    export function get(url: string, success: AJAXSuccess): Deferred;
+    /**
+     * Load data from the server using a HTTP GET request.
+     * @param url A string containing the URL to which the request is sent.
+     * @param data A plain object or string that is sent to the server with the request.
+     * @param success A callback function that is executed if the request succeeds.
+     */
+    export function get(url: string, data: any, success: AJAXSuccess): Deferred;
+    /**
+     * Load data from the server using a HTTP GET request.
+     * @param settings A set of key/value pairs that configure the Ajax request.
+     */
+    export function get(settings: AJAXSettings): Deferred;
+
+    export function get(urlOrSettings: AJAXSettings | string, dataOrSuccess?: AJAXSuccess | any, success?: AJAXSuccess): Deferred {
+        return requestBuilder(HTTP.GET, urlOrSettings, dataOrSuccess, success);
+    }
+
+    /**
+     * Load data from the server using a HTTP POST request.
+     * @param url A string containing the URL to which the request is sent.
+     * @param success A callback function that is executed if the request succeeds.
+     */
+    export function post(url: string, success: AJAXSuccess): Deferred;
+    /**
+     * Load data from the server using a HTTP POST request.
+     * @param url A string containing the URL to which the request is sent.
+     * @param data A plain object or string that is sent to the server with the request.
+     * @param success A callback function that is executed if the request succeeds.
+     */
+    export function post(url: string, data: any, success: AJAXSuccess): Deferred;
+    /**
+     * Load data from the server using a HTTP POST request.
+     * @param settings A set of key/value pairs that configure the Ajax request.
+     */
+    export function post(settings: AJAXSettings): Deferred;
+
+    export function post(urlOrSettings: AJAXSettings | string, dataOrSuccess?: AJAXSuccess | any, success?: AJAXSuccess): Deferred {
+        return requestBuilder(HTTP.POST, urlOrSettings, dataOrSuccess, success);
+    }
+
+    export function param(obj: ArrayLikeObject, tradicional = false): string {
+        return buildParam(obj, '', tradicional);
+    }
+
+    /**
+     * Set event shorthand methods.
+     * @param events string[] Ex.: ['click', 'focus', 'mouseenter'] enable this shorthand methods.
+     */
+    export function shorthands(events: string[]): void {
         events.forEach((event) => {
-            MQuery.fn[event] = function (handler) {
-                if (!MQuery.isSet(handler)) {
+            fn[event] = function (handler) {
+                if (!isSet(handler)) {
                     return this.trigger(event);
                 }
                 return this.on(event, handler);
@@ -285,688 +1515,119 @@ export class MQuery {
     }
 
     /**
-     * Export automatic mQuery instance methods to objects.
-     * Ex.: MQuery.(foo, ['click'], 'button') enables foo.click() trigger click on button tags
-     * @param target object will be receive the method
-     * @param fns array of functions will be ed
-     * @param selector selector for mQuery instance
-     * @return void
+     * A factory function that returns a chainable utility object with methods to register multiple callbacks into callback queues, invoke callback queues, and relay the success or failure state of any synchronous or asynchronous function.
+     * @param beforeStart A function that is called just before the constructor returns.
      */
-    public static export(target: any, fns: Array<string>, selector: any = []): void {
-        fns.forEach((fn) => {target[fn] = function () {
-            let mQuery = new MQuery(selector);
-            mQuery[fn].apply(mQuery, arguments);
-        }});
+    export function Deferred(beforeStart?: Function): Deferred {
+        return new m$.Promise.Deferred(beforeStart);
+    }
+
+    const EMPTY = m$();
+    const ROOT = m$(DOC);
+    export const ready = ROOT.ready;
+}
+
+export namespace m$.Promise {
+
+    type Pipeline = {
+        done: Function[],
+        fail: Function[],
+        context?: any,
+        args?: any
+    }
+
+    export enum State {
+        Pending = 'pending',
+        Resolved = 'resolved',
+        Rejected = 'rejected'
+    }
+
+    function call(fns, context = this, args?: any[]) {
+        let fnReturn;
+        fns.forEach((fn) => {
+            fnReturn = fn.apply(context, args);
+            fnReturn !== undefined && (args = fnReturn);
+        })
     }
 
     /**
-     * Generic child insertion.
-     * @param rawChildren array<MQuery|HTMLElement|string> children array
-     * @param elemInsertFn function responsible to add elem child
-     * @param stringInsertFn function responsible to add string child
-     * @return void
+     * Chainable utility
      */
-    private static setChildren(rawChildren: any, elemInsertFn: Function, stringInsertFn: Function): void {
-        rawChildren.forEach((children) => {
-            if (MQuery.instanceOf(children, MQuery)) {
-                children.each((i, child) => {
-                    if (MQuery.hasParent(child)) {
-                        return stringInsertFn(child.outerHTML);
-                    }
-                    elemInsertFn(child);
-                });
-                return;
-            }
-            if (MQuery.typeOf(children, 'array')) {
-                return this.setChildren(children, elemInsertFn, stringInsertFn);
-            }
-            if (MQuery.typeOf(children, 'string')) {
-                return stringInsertFn(children);
-            }
-            return elemInsertFn(children);
-        });
-    }
+    export class Deferred {
+        private _state: State;
+        private pipeline: Pipeline;
 
-    /**
-     * Shorthand to concat all elements quered values with space between them.
-     * @param fnVal function responsible to generate value
-     * @return string with values concated
-     */
-    private eachConcat(fnVal: Function): string {
-        let value = '';
-        this.each((i, elem) => {
-            value += `${fnVal.apply(elem, [i, elem])} `;
-        });
-        return value.trim() || void 0;
-    }
+        constructor (beforeStart?: Function) {
+            this._state = State.Pending;
+            this.pipeline = {done: [], fail: []};
+            beforeStart && beforeStart(this);
+        }
 
-    /**
-     * Return all leaf elements (elements without child).
-     * @return MQuery instance
-     */
-    public leaves(): MQuery {
-        let leaves = new MQuery([]);
-        this.each((i, elem) => {
-            if (!elem.firstChild) {
-                leaves.push(elem);
-                return;
-            }
-            MQuery.forEach(elem.getElementsByTagName("*"), (child) => {
-                if (!child.firstElementChild) {leaves.push(child); }
-            });
-        });
-        return leaves;
-    }
-
-    /**
-     * Called after DOM content finish load.
-     * @param handler event listener
-     * @return MQuery instance
-     */
-    public ready(handler: EventListener): MQuery {
-        MQuery.DOC.addEventListener('DOMContentLoaded', handler, true);
-        return this;
-    }
-
-    /**
-     * Each quered elements.
-     * @param handler callback to iterate elements
-     * @return MQuery instance
-     */
-    public each(handler: EachIterator): MQuery {
-        let count = 0;
-        this.forEach(elem => {handler.apply(elem, [count++, elem])});
-        return this;
-    }
-
-    /**
-     * Attach listeners on events passed by paramenter.
-     * @param event events separated by space
-     * @param selectOrHandler [OPTIONAL] selector to query before attach
-     * @param handler event listener
-     * @return MQuery instance
-     */
-    public on(event: string, selectOrHandler: any, handler?: EventListener): MQuery {
-        if (arguments.length === 2) {handler = selectOrHandler; }
-
-        let events = event.split(' '),
-            elems = arguments.length === 3 ? this.find(selectOrHandler) : this;
-        elems.each((i, elem) => {
-            events.forEach((event) => {elem.addEventListener(event, handler, true)});
-        });
-        return this;
-    }
-
-    /**
-     * Detach listeners on events passed by paramenter.
-     * @param event events separated by space
-     * @param selectOrHandler [OPTIONAL] selector to query before detach
-     * @param handler event listener
-     * @return MQuery instance
-     */
-    public off(event: string, selectOrHandler: any, handler: EventListener): MQuery {
-        if (arguments.length === 2) {let handler = selectOrHandler; }
-
-        let events = event.split(' '),
-            elems = arguments.length === 3 ? this.find(selectOrHandler) : this;
-        elems.each((i, elem) => {
-            events.forEach((event) => {elem.removeEventListener(event, handler, true)});
-        });
-        return this;
-    }
-
-    public is(selector: string): MQuery {
-        let elems = new MQuery([]);
-        this.each((i, elem) => {
-            if (MQuery.matches(elem, selector)) {elems.push(elem); }
-        });
-        return elems;
-    }
-
-    /**
-     * Find children elements by selector.
-     * @param selector query selector
-     * @return MQuery instance
-     */
-    public find(selector: string): MQuery {
-        let elems = new MQuery([]), concat;
-
-        this.each((i, elem) => {
-            try {
-                concat = elem.querySelectorAll(selector);
-                elems.concat(concat);
-            } catch (e) {}
-        });
-
-        return elems;
-    }
-    
-    /**
-     * Get parent element.
-     * @param selector [OPTIONAL] parent's selector
-     * @return MQuery instance
-     */
-	public parent(selector?: string): MQuery {
-        let parents = new MQuery([]);
-
-        this.each((i, elem) => {
-            if (!MQuery.hasParent(elem)) {return false; }
-            elem = elem.parentElement;
-
-            if (!MQuery.matches(elem, selector)) {return false; }
-
-            parents.push(elem);
+        private changeState(newState: State, context, args): boolean {
+            if (this._state !== State.Pending) {return false; }
+            this._state = newState;
+            this.pipeline.context = context;
+            this.pipeline.args = args;
             return true;
-        });
+        }
 
-        return parents;
-    }
 
-    /**
-     * [EXPERIMENTAL] Load data inside quered elements.
-     */
-    // public load(url: string, complete?: any, error?: any): MQuery {
-    //     let fetchURL = fetch(url).then((data) => data.text());
-    //     fetchURL.then((text) => {this.html(text); });
-    //     MQuery.isSet(complete) && fetchURL.then(complete);
-    //     MQuery.isSet(error) && fetchURL.catch(error);
-    //     return this;
-    // }
+        public resolve(...args): this {
+            args.unshift(this);
+            return this.resolveWith.apply(this, args);
+        }
 
-    public load(url: string, data?: Object, complete?: AJAXCallback): MQuery {
-        var xhttp = new XMLHttpRequest();
-        xhttp.onreadystatechange = function() {
-            if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("demo").innerHTML = this.responseText;
+        public reject(...args): this {
+            args.unshift(this);
+            return this.rejectWith.apply(this, args);
+        }
+
+        public resolveWith(context, ...args): this {
+            if (this.changeState(State.Resolved, context, args)) {
+                call(this.pipeline.done, context, args);
             }
-        };
-        xhttp.open("GET", "ajax_info.txt", true);
-        xhttp.send();
-        return this;
-    }
-
-    public ajax(url: string): Object;
-    public ajax(config: AJAXConfig): Object;
-    public ajax(url: string, config: AJAXConfig): Object;
-    public ajax(url: string | AJAXConfig, config?: AJAXConfig): Object {            
-        if (MQuery.instanceOf(url, Object)) {
-            config = <AJAXConfig> url;
-            url = '';
-        } else {
-            config.url = <string> url;
-        }
-
-        let callbacks = {done:[],fail:[]};
-
-        MQuery.forEachObj(MQuery.AJAX_CONFIG, (key, value) => {
-            if (MQuery.isSet(config[key])) {return; }
-            config[key] = value;
-        });
-
-        // Create XMLHtmlRequest
-        let request = config.xhr();
-
-        // Call beforeSend
-        config.beforeSend && config.beforeSend(request, config);
-
-        // Set context of callbacks
-        let context = config.context || config;
-
-        // Set Method
-        let method = config.type || config.method;
-
-        let callSuccess = (fn, data) => {
-            let status = request.statusText.replace(/^[\d*\s]/g, '');
-
-            if (MQuery.isSet(config.dataFilter)) {
-                data = config.dataFilter(data, request.getResponseHeader('Content-Type'));
-            }
-
-            MQuery.callFn(fn, context, [data, status, request]);
-            MQuery.callFn(config.complete, context, [request, 'success']);
-            config.complete = () => {};
-        }
-
-        let callError = (fn, textStatus, errorMessage) => {
-            let errorThrown = request.statusText.replace(/^[\d*\s]/g, '');
-            MQuery.callFn(fn, context, [request, textStatus, errorThrown]);
-            MQuery.callFn(config.complete, context, [request, textStatus]);
-            config.complete = () => {};
-        }
-
-        let done = () => {
-            MQuery.callFns(callbacks.done, (callback) => {
-                if (request.status === 200) {
-                    callSuccess(callback, request.response);
-                } else {
-                    callError(callback, null, request.statusText);
-                }
-            });
-        };
-
-        let fail = (textStatus, errorMessage) => {
-            MQuery.callFns(callbacks.fail, (callback) => {
-                callError(textStatus, errorMessage, callback);
-            });
-        }
-
-        let options = {
-            done: (callback) => {
-                callbacks.done.push(callback);
-                return options;
-            },
-            fail: (callback) => {
-                callbacks.fail.push(callback);
-                return options;
-            },
-            then: (success, error) => {
-                options.done(success);
-                options.fail(error);
-                return options;
-            },
-            allways: (callback) => options.then(callback, callback)
-        }
-
-        // Open request
-        request.open(config.method, config.url, config.async, config.username, config.password);
-
-        // Override mime type
-        if (MQuery.isSet(config.mimeType)) {
-            request.overrideMimeType(config.mimeType);
-        }
-
-        // Set headers
-        request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        if (MQuery.isSet(config.headers)) {
-            MQuery.forEachObj(config.headers, (header, value) => {
-                request.setRequestHeader(header, value);
-            });
-        }
-        if (config.contentType !== false 
-        && (method === 'POST' || method === 'PUT')) {
-            request.setRequestHeader('Content-Type', config.contentType);
-        }
-
-        // Set timeout in ms
-        request.timeout = config.timeout;
-
-        // Listeners
-        options.then(config.success, config.error);
-        request.onload = done;
-        request.onerror = () => {fail('error', 'Connection error.')};
-        request.ontimeout = () => {fail('timeout', 'Request timed out.')};
-        request.onabort = () => {fail('abort', 'Request aborted.')};
-
-        // Proccess data
-        let data = config.data;
-
-        // Send data
-        request.send(data);
-
-        return options;
-    }
-
-    private static callFn(fn: Function, context: Object, params: any[] = []): void {
-        if (!fn || !MQuery.typeOf(fn, 'function')) {return; }
-        fn.apply(context, params);
-    }
-
-    private static callFns(fns: Function[], call: Function): void {
-        fns.forEach((fn) => {call(fn)});
-    }
-
-    /**
-     * Trigger events.
-     * @param event event name
-     * @param data data to be passed to event
-     * @return MQuery instance
-     */
-    public trigger(event: string, data?: KeyValue): MQuery {
-        return this.each((i, elem) => {
-            if (event === 'focus') {
-                elem.focus();
-                return;
-            }
-            let customEvent;
-            if (window && window['CustomEvent']) {
-                customEvent = new CustomEvent(event, data);
-            } else {
-                customEvent = document.createEvent(MQuery.snakeToCamelCase(event));
-                customEvent.initCustomEvent(event, true, true, data);
-            }
-            elem.dispatchEvent(customEvent);
-        });
-    }
-
-    /**
-     * Get/Set attribute on quered elements.
-     * @param attr attribute name
-     * @param value [ONLY TO SET] attribute value
-     * @return MQuery instance if setting a value, or string if getting
-     */
-    public attr(attr: string): string;
-    public attr(attr: string, value: string): MQuery;
-    public attr(attr: string, value?: string): MQuery | string {
-        if (MQuery.isSet(value)) {
-            return this.each((i, elem) => {
-                if (MQuery.isSet(elem[attr])) {
-                    elem[attr] = value;
-                    return;
-                }
-                elem.setAttribute(attr, value);
-            });
-        }
-
-        return this.eachConcat((i, elem) => {
-            if (MQuery.isSet(elem[attr])) {
-                return elem[attr];
-            }
-            return elem.getAttribute(attr);
-        });
-    }
-
-    public removeAttr(attr: string): MQuery {
-        return this.each((i, elem) => {
-            elem.removeAttribute(attr);
-        });
-    }
-
-    /**
-     * Get/Set style on quered elements.
-     * @param nameOrJSON name of the style or [ONLY TO SET] JSON with styles and values
-     * @param value [ONLY TO SET] value of the style
-     * @return MQuery instance if setting a value, or string if getting
-     */
-    public css(vame: string): string;
-    public css(json: Object): MQuery;
-    public css(name: string, value: string | number): MQuery;
-    public css(nameOrJSON: any, value?: string): MQuery | string {
-        if (!MQuery.typeOf(nameOrJSON, 'string')) {
-            MQuery.forEachObj(nameOrJSON, (key, value) => {this.css(key, value)});
             return this;
         }
 
-        let name = MQuery.snakeToCamelCase(nameOrJSON);
-
-        if (MQuery.isSet(value)) {
-            return this.each((i, elem) => {
-                elem.style[name] = value;
-            });
-        }
-
-        return this.eachConcat((i, elem) => {
-            return elem.style[name];
-        });
-    }
-
-    /**
-     * Get/Set inner text on quered elements (for active HTML code, use .html()).
-     * @param value text to be added
-     * @return MQuery instance if setting a value, or string if getting
-     */
-    public text(): string;
-    public text(value: string): MQuery;
-    public text(value?: string): MQuery | string {
-        if (MQuery.isSet(value)) {
-            return this.each((i, elem) => {
-                elem.textContent = value;
-            });
-        }
-        return this.eachConcat((i, elem) => elem.textContent);
-    }
-
-    /**
-     * Get/Set inner html on quered elements.
-     * @param value [ONLY TO SET] html code to be added
-     * @return MQuery instance if setting a value, or string if getting
-     */
-    public html(): string;
-    public html(value: string): MQuery;
-    public html(value?: string): MQuery | string {
-        if (MQuery.isSet(value)) {
-            return this.each((i, elem) => {
-                elem.innerHTML = value;
-            });
-        }
-        return this.eachConcat((i, elem) => elem.innerHTML);
-    }
-
-    /**
-     * Get/Set outer html on quered elements.
-     * @param value [ONLY TO SET] html code to replace
-     * @return MQuery instance if setting a value, or string if getting
-     */
-    public outerHtml(): string;
-    public outerHtml(value: string): MQuery;
-    public outerHtml(value?: string): MQuery | string {
-        if (MQuery.isSet(value)) {
-            return this.each((i, elem) => {
-                elem.outerHTML = value;
-            });
-        }
-        return this.eachConcat((i, elem) => elem.outerHTML);
-    }
-
-    /**
-     * Return children of all elements on list.
-     * @param selector [OPTIONAL] match children before return
-     */
-    public children(selector?: string): MQuery {
-        let elems = new MQuery([]);
-        this.each((i, elem) => {elems.concat(elem.childNodes); });
-        return selector ? elems.is(selector) : elems;
-    }
-
-    /**
-     * Return first element on list or undefined if list is empty.
-     */
-    public first(): MQuery {
-        return new MQuery(this.length ? this[0] : undefined);
-    }
-
-    /**
-     * Return last element on list or undefined if list is empty.
-     */
-    public last(): MQuery {
-        return new MQuery(this.length ? this[this.length - 1] : undefined);
-    }
-
-    /**
-     * Get all siblings.
-     * @param selector [OPTIONAL] filter siblings by selector
-     * @return MQuery instance
-     */
-    public siblings(selector?: string): MQuery {
-        let siblings = new MQuery([]);
-        this.each((i, elem) => {
-            MQuery.forEach(elem.parentElement.children, (child) => {
-                if (child === elem) {return; }
-                if (!MQuery.matches(child, selector)) {return; }
-                siblings.push(child);
-            });
-        });
-        return siblings;
-    }
-
-    /**
-     * Get previous sibling.
-     * @param selector [OPTIONAL] get previous sibling matches selector
-     * @return MQuery instance
-     */
-    public prev(selector?: string): MQuery {
-        let prev = new MQuery([]), prevElem;
-        this.each((i, elem) => {
-            prevElem = elem.previousElementSibling;
-            while (prevElem && !MQuery.matches(prevElem, selector)) {
-                prevElem = prevElem.previousElementSibling;
+        public rejectWith(context, ...args): this {
+            if (this.changeState(State.Rejected, context, args)) {
+                call(this.pipeline.fail, context, args);
             }
-            prev.push(prevElem);
-        });
-        return prev;
-    }
-
-    /**
-     * Get next sibling.
-     * @param selector [OPTIONAL] get next sibling matches selector
-     * @return MQuery instance
-     */
-    public next(selector?: string): MQuery {
-        let next = new MQuery([]), nextElem;
-        this.each((i, elem) => {
-            nextElem = elem.nextElementSibling;
-            while (nextElem && !MQuery.matches(nextElem, selector)) {
-                nextElem = nextElem.nextElementSibling;
-            }
-            next.push(nextElem);
-        });
-        return next;
-    }
-
-    /**
-     * Add elements before first child.
-     * @param elem1... MQuery|element
-     * @return MQuery instance
-     */
-    public prepend(): MQuery {
-        let rawChildren = MQuery.toArray(arguments).reverse();
-        return this.each((i, parent) => {
-            MQuery.setChildren(rawChildren,
-                (child) =>  {parent.insertBefore(child, parent.firstChild)},
-                (str) =>    {parent.insertAdjacentHTML('afterbegin', str)});
-        });
-    }
-
-    /**
-     * Add elements after last child.
-     * @param elem1... MQuery|Element
-     * @return MQuery instance
-     */
-    public append(): MQuery {
-        let rawChildren = MQuery.toArray(arguments);
-        return this.each((i, parent) => {
-            MQuery.setChildren(rawChildren,
-                (child) =>  {parent.appendChild(child)},
-                (str) =>    {parent.insertAdjacentHTML('beforeend', str)});
-        });
-    }
-
-    /**
-     * Get/Set 'data' attribute.
-     * @param attr attribute name
-     * @param value [ONLY TO SET] attribute value
-     * @return MQuery instance if setting a value, or string if getting
-     */
-    public data(attr: string): string;
-    public data(attr: string, value: string): MQuery;
-    public data(attr: string, value?: string): MQuery | string {
-        if (!MQuery.isSet(value)) {
-            return this.attr(`data-${attr}`);
+            return this;
         }
-        return this.attr(`data-${attr}`, value);
-    }
 
-    /**
-     * Get/Set input value.
-     * @param value [ONLY TO SET] input value
-     * @return MQuery instance if setting a value, or string if getting
-     */
-    public val(): string;
-    public val(value: string): MQuery;
-    public val(value?: string): MQuery | string {
-        if (!MQuery.isSet(value)) {
-            return this.attr('value');
+        public state(): string {
+            return this._state;
         }
-        return this.attr('value', value);
-    }
 
-    /**
-     * Add class on quered elements.
-     * @param className class name
-     * @return MQuery instance
-     */
-    public addClass(className: string): MQuery {
-        return this.each((i, elem) => {elem.classList.add(className)});
-    }
+        public promise(): Deferred {
+            return this;
+        }
 
-    /**
-     * Remove class on quered elements.
-     * @param className class name
-     * @return MQuery instance
-     */
-    public removeClass(className: string): MQuery {
-        return this.each((i, elem) => {elem.classList.remove(className)});
-    }
-
-    /**
-     * Return if some quered element has the class.
-     * @param className class name
-     * @return true, if some quered element has the class, and false if not.
-     */
-    public hasClass(className: string): boolean {
-        return this.some((elem) => elem.classList.contains(className));
-    }
-
-    /**
-     * Toggle class on quered elements.
-     * @param className class name
-     * @return MQuery instance
-     */
-    public toggleClass(className: string): MQuery {
-        return this.each((i, elem) => {elem.classList.toggle(className)});
-    }
-
-    /**
-     * Remove elements on MQuery array.
-     * @param selector [OPTIONAL] query selector
-     */
-    public remove(selector?: string): MQuery {
-        let elems = new MQuery();
-        this.each((i, elem) => {
-            if (MQuery.matches(elem, selector)) {
-                elem.outerHTML = '';
-                return;
+        public done(callback: (...args) => void): Deferred {
+            if (!callback) {return this; }
+            if (this.state() === State.Resolved) {
+                callback.apply(this.pipeline.context, this.pipeline.args);
             }
-            elems.push(elem);
-        });
-        return elems;
-    }
+            this.pipeline.done.push(callback);
+            return this;
+        }
 
-    /**
-     * Remove all childs (including texts).
-     */
-    public empty(): MQuery {
-        return this.each((i, elem) => {elem.innerHTML = ''});
-    }
+        public fail(callback: (...args) => void): Deferred {
+            if (!callback) {return this; }
+            if (this.state() === State.Rejected) {
+                callback.apply(this.pipeline.context, this.pipeline.args);
+            }
+            this.pipeline.fail.push(callback);
+            return this;
+        }
 
-    /**
-     * Return width of first element on list.
-     */
-    public width(): number {
-        if (!this.length) {return undefined; }
-        return this[0].clientWidth;
-    }
+        public then(successFilter: (...args) => any, errorFilter?: (...args: any[]) => any, progressFilter?: (...args: any[]) => any): Deferred {
+            return this.done(successFilter).fail(errorFilter);
+        }
 
-    /**
-     * Return height of first element on list.
-     */
-    public height(): number {
-        if (!this.length) {return undefined; }
-        return this[0].clientHeight;
+        public allways(callback: (...args) => void): Deferred {
+            return this.then(callback, callback);
+        }
     }
 }
-
-/**
- * Return instance of MQuery with elements matched.
- * @param selector selector
- * @return MQuery instance
- */
-export const m$ = (selector?: MQuery | NodeList | Node | Array<Node> | string) => new MQuery(selector);
-/**
- * Return instance of MQuery with elements matched.
- * @param selector selector
- * @return MQuery instance
- */
-export const mQuery = m$;
-
-// Export global MQuery fns
-MQuery.export(m$, ['ready', 'load']);
