@@ -22,7 +22,7 @@ if  [ "$1" != 'module' ]; then
     echo 'Building web library...'
     mkdir ${TMP_PATH}
     cp -f ${LIB_PATH}*.ts ${TMP_PATH}
-    sed -i s/^[^A-Za-z0-9]*export\\s//g ${TMP_PATH}*.ts
+    sed -i s/^export\\s//g ${TMP_PATH}*.ts
     tsc ${TMP_PATH}*.ts --module none --target ${WEB_TARGET} --outDir ${WEB_PATH}
     rm -rf ${TMP_PATH}
 
