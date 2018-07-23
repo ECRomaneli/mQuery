@@ -10,7 +10,7 @@ export declare function m$(onReady: Function): mQuery;
  * @param selector A selector, DOM Element, Document, or mQuery to create instance.
  * @param context A DOM Element, Document, or mQuery to use as context.
  */
-export declare function m$(selector?: mQuery | NodeList | Node | Node[] | string, context?: mQuery | NodeList | Node | Node[] | string | boolean): mQuery;
+export declare function m$(selector?: mQuery | NodeList | Node | Node[] | string | void, context?: mQuery | NodeList | Node | Node[] | string | void): mQuery;
 export declare const mQuery: typeof m$;
 export declare namespace m$ {
     type Class = mQuery;
@@ -54,7 +54,7 @@ export declare namespace m$ {
         CONNECT = "CONNECT",
         OPTIONS = "OPTIONS",
         TRACE = "TRACE",
-        PATCH = "PATCH",
+        PATCH = "PATCH"
     }
     const APP_NAME = "mQuery";
     const AUX_ELEM: HTMLElement;
@@ -63,7 +63,7 @@ export declare namespace m$ {
      */
     class mQuery implements ArrayLike<HTMLElement> {
         [index: number]: HTMLElement;
-        prevObject: mQuery;
+        prevObject?: mQuery;
         length: number;
         /**
          * Constructor.
@@ -73,11 +73,11 @@ export declare namespace m$ {
         /**
          * Insert element without repeat.
          */
-        private push(elem);
+        private push;
         /**
          * Concat array-like elements inside current object.
          */
-        private concat(elems);
+        private concat;
         /**
          * [ONLY MQUERY] Return all leaf elements (elements without child).
          */
@@ -135,7 +135,7 @@ export declare namespace m$ {
          * Check the current matched set of elements against a selector or function.
          * @param is (i, elem) => boolean A function used as a test for every element in the set. Within the function, "this" refers to the current DOM element.
          */
-        is(filter: (i, elem) => boolean): boolean;
+        is(filter: (i: any, elem: any) => boolean): boolean;
         /**
          * Check the current matched set of elements against a selector or function.
          * @param selector A string containing a selector expression to match elements against.
@@ -240,9 +240,9 @@ export declare namespace m$ {
         removeProp(propNames: string): this;
         /**
          * Get the computed style properties for the first element in the set of matched elements.
-         * @param propName A CSS property.
+         * @param styleName A CSS property.
          */
-        css(propName: string): string;
+        css(styleName: string): string;
         /**
          * Set one or more CSS properties for the set of matched elements.
          * @param properties An object of property-value pairs to set.
@@ -250,10 +250,10 @@ export declare namespace m$ {
         css(properties: PlainObject): this;
         /**
          * Set one or more CSS properties for the set of matched elements.
-         * @param propName A CSS property name.
+         * @param styleName A CSS property name.
          * @param value A value to set for the property.
          */
-        css(propName: string, value: string): this;
+        css(styleName: string, value: string | number): this;
         /**
          * Get the combined text contents of each element in the set of matched elements, including their descendants.
          */
@@ -305,11 +305,13 @@ export declare namespace m$ {
          * @param contents DOM element, text node, array of elements and text nodes, HTML string, or mQuery object to insert at the beginning of each element in the set of matched elements.
          */
         prepend(...contents: any[]): this;
+        prependTo(selector?: any): this;
         /**
          * Insert content, specified by the parameter, to the end of each element in the set of matched elements.
          * @param contents DOM element, text node, array of elements and text nodes, HTML string, or mQuery object to insert at the end of each element in the set of matched elements.
          */
         append(...contents: any[]): this;
+        appendTo(selector?: any): this;
         /**
          * Return the values store for the first element in the collection.
          * @param key A string naming the piece of data to set.
@@ -370,15 +372,18 @@ export declare namespace m$ {
          * Remove all child nodes of the set of matched elements from the DOM.
          */
         empty(): this;
-        map(beforePush: (value, index) => any): Array<any>;
         /**
-         * Return width of first element on list.
+         * Pass each element in the current matched set through a function, producing a new mQuery object containing the return values.
+         * @param beforePush The function to process each item.
          */
-        width(): number;
+        map(beforePush: (element: any, index: any) => any): mQuery;
         /**
-         * Return height of first element on list.
+         * Retrieve one of the elements matched. If index was not passed, return an array with all elements.
+         * @param index A zero-based integer indicating which element to retrieve.
          */
-        height(): number;
+        get(index?: number): HTMLElement[] | HTMLElement | void;
+        width(value?: any): mQuery | number;
+        height(value?: any): mQuery | number;
         /**
          * Merge the contents of an object onto the mQuery prototype to provide new mQuery instance methods.
          * @param obj An object to merge onto the jQuery prototype.
@@ -393,8 +398,17 @@ export declare namespace m$ {
      * @param param Parameter to be verified.
      */
     function isFalse(param: any): boolean;
+    function instanceOf(obj: any, ...classes: any[]): boolean;
     /**
-     * Verify if object is array-like.
+     * Verify the type of object passed and compare.
+     */
+    function typeOf(obj: any, types: string | string[]): boolean;
+    /**
+     * Add elements into instance passed by argument or return defaults.
+     */
+    function createList(inst: mQuery, selector: any): mQuery;
+    /**
+     * [MQUERY ONLY] Verify if object is array-like.
      * @param obj Object to be verified.
      */
     function isArrayLike(obj: any): boolean;
@@ -428,14 +442,14 @@ export declare namespace m$ {
      * @param invert If true, the filter gonna return false to add element. Default false.
      * @param newArr [ONLY MQUERY] Optional: List to add elements.
      */
-    function grep(arr: ArrayLike<any>, filter: (value, index) => boolean | void, invert?: boolean, newArr?: any): ArrayLike<any>;
+    function grep(arr: ArrayLike<any>, filter: (value: any, index: any) => boolean | void, invert?: boolean, newArr?: any): ArrayLike<any>;
     /**
      * Translate all items in an array or object to new array of items.
      * @param arr The Array or object to translate.
-     * @param beforePush The function to process each item against.
-     * @param newArr [ONLY MQUERY] Optional: List to add elements.
+     * @param beforePush The function to process each item.
+     * @param newArr [ONLY MQUERY] List to add elements.
      */
-    function map(arr: ArrayLikeObject, beforePush: (value, index) => any, newArr?: any[]): any[];
+    function map(arr: ArrayLikeObject, beforePush: (value: any, index: any) => any, newArr?: any): ArrayLike<any>;
     /**
      * Determine the internal JavaScript [[Class]] of an object.
      * @param obj Object to get the internal JavaScript [[Class]] of.
@@ -455,7 +469,7 @@ export declare namespace m$ {
      * Transform HTML/XML code to list of elements.
      * @param htmlString HTML/XML code.
      */
-    function parseHTML(htmlString: string): NodeList;
+    function parseHTML(htmlString: string): any[];
     /**
      * [ONLY MQUERY] Transforms object into string and string into object.
      * @param objOrText Object or string.
@@ -551,7 +565,7 @@ export declare namespace m$.Promise {
     enum State {
         Pending = "pending",
         Resolved = "resolved",
-        Rejected = "rejected",
+        Rejected = "rejected"
     }
     /**
      * Chainable utility
@@ -560,16 +574,16 @@ export declare namespace m$.Promise {
         private _state;
         private pipeline;
         constructor(beforeStart?: Function);
-        private changeState(newState, context, args);
+        private changeState;
         resolve(...args: any[]): this;
         reject(...args: any[]): this;
         resolveWith(context: any, ...args: any[]): this;
         rejectWith(context: any, ...args: any[]): this;
         state(): string;
         promise(): Deferred;
-        done(callback: (...args) => void): Deferred;
-        fail(callback: (...args) => void): Deferred;
-        then(successFilter: (...args) => any, errorFilter?: (...args: any[]) => any, progressFilter?: (...args: any[]) => any): Deferred;
-        allways(callback: (...args) => void): Deferred;
+        done(callback: (...args: any[]) => void): Deferred;
+        fail(callback: (...args: any[]) => void): Deferred;
+        then(successFilter: (...args: any[]) => any, errorFilter?: (...args: any[]) => any): Deferred;
+        allways(callback: (...args: any[]) => void): Deferred;
     }
 }
