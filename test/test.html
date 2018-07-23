@@ -6,20 +6,26 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Tests</title>
 
+    <style>
+        .layer-1, .layer-2 {
+            margin: 10px;
+            padding: 5px;
+        }
+
+        .layer-1 {
+            background-color: red;
+        }
+
+        .layer-2 {
+            background-color: blue;
+        }
+    </style>
     <script
         src="https://code.jquery.com/jquery-3.3.1.js"
         integrity="sha256-2Kok7MbOyxpgUVvAk/HJ2jigOSYS2auK4Pfzbm7uH60="
         crossorigin="anonymous"></script>
     <script src="../dist/web/mquery.js"></script>
-    <script>
-        t = m$();
-        m$(() => {
-            console.log('here1');
-        })
-        m$(() => {
-            console.log('here2');
-        })
-    </script>
+    <script src="web.js"></script>
 </head>
 <body>
     <input type="text" name="text" id="text">

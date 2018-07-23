@@ -1,4 +1,4 @@
-const {FakeHTMLDocument} = require('fakehtmldocument');
+require('fakehtmldocument')
 const assert = require('assert');
 
 const {m$} = require('../dist/module/mquery');

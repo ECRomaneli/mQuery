@@ -3,21 +3,13 @@ export type mQuery = m$.Class;
 export type m$ = m$.Class;
 
 /**
- * Binds a function to be executed when the DOM has finished loading.
- * @param onReady The function to execute when the DOM is ready.
+ * mQuery, a jQuery-like lightweight framework.
  */
 export function m$(onReady: Function): mQuery;
-/**
- * Return a collection of matched elements.
- * @param selector A selector, DOM Element, Document, or mQuery to create instance.
- * @param context A DOM Element, Document, or mQuery to use as context.
- */
-export function m$(selector?: mQuery | NodeList | Node | Node[] | string | void, context?: mQuery | NodeList | Node | Node[] | string | void): mQuery;
-
+export function m$(selector?: mQuery | NodeList | Node | Node[] | string, context?: mQuery | NodeList | Node | Node[] | string | boolean): mQuery;
 export function m$(selector?, context?): mQuery {
     return new mQuery.Class(selector, context);
 }
-
 export const mQuery = m$;
 
 export namespace m$ {
@@ -67,7 +59,6 @@ export namespace m$ {
 
     // init constants
     const DOC = document;
-    const WIN = window || DOC.defaultView;
     const AJAX_CONFIG = {
         contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
         method: HTTP.GET,
@@ -82,24 +73,58 @@ export namespace m$ {
     export const APP_NAME = 'mQuery';
     export const AUX_ELEM = DOC.createElement(`_${APP_NAME}_`);
 
+    export abstract class ArrayPrototype<T> implements ArrayLike<T> {
+        [index: number]: T;
+        public length = 0;
+    }
+    ArrayPrototype.prototype = Array.prototype;
+
+    function createList(selector, inst?) {
+        // console.log('0');
+
+        if (!inst) {
+            if (!selector) {return inst; }
+            // console.log('2');
+            if (selector instanceof mQuery) {return selector; }
+            // console.log('3');
+
+            inst = m$();
+            inst.prevObject = selector.prevObject;
+        } else if (isArrayLike(selector)) {
+            delete inst.prevObject;
+        }
+
+        try {
+            inst.concat(generateNodeArray(inst.prevObject, selector));
+            // console.log('4');
+        } catch (e) {
+            delete inst.prevObject;
+            inst.concat(makeArray(parseHTML(selector)));
+            // console.log('5');
+        }
+        return inst.length ? inst : void 0;
+    }
+
     /**
-     * mQuery Core.
+     * mQuery object.
      */
-    export class mQuery implements ArrayLike<HTMLElement> {
-        [index: number]: HTMLElement;
-        public prevObject?: mQuery;
-        public length: number = 0;
+    export class mQuery extends ArrayPrototype<HTMLElement> {
+        public prevObject: mQuery;
 
         /**
-         * Constructor.
+         * Default constructor.
          * @param selector mQuery | NodeList | Node | Node[] | QuerySelector | HTML String
          */
+
         constructor(selector?, context?) {
+            super();
+
             // If selector is a false value with no context or is document
-            let empty = isFalse(selector);
-            if ((empty && !context) || typeOf(selector, ['document', 'window'])) {
-                // If has selector, then add selector into mQuery list
-                !empty && this.push(selector);
+            if ((isFalse(selector) && !context) || selector === DOC) {
+                // Remove prevObject
+                delete this.prevObject;
+                // If selector is DOC, then add DOC into mQuery instance
+                selector === DOC && this.push(DOC);
                 // Return mQuery instance
                 return this;
             }
@@ -108,8 +133,8 @@ export namespace m$ {
             if (typeOf(selector, 'function')) {return ROOT.ready(selector); }
 
 
-            this.prevObject = getContext(context);
-            return createList(this, selector);
+            this.prevObject = createList(context) || ROOT;
+            createList(selector, this);
         }
 
         // =================== ARRAY PROPERTIES =================== //
@@ -118,7 +143,7 @@ export namespace m$ {
          * Insert element without repeat.
          */
         private push(elem: Node): this {
-            if (!isSet(elem)) {return this; }
+            if (!elem) {return this; }
 
             if (!elem[APP_NAME]) {
 
@@ -148,17 +173,28 @@ export namespace m$ {
         /**
          * Concat array-like elements inside current object.
          */
-        private concat(elems: any): this {
-            return <this>merge(this, elems);
+        private concat(elems: any): ArrayLike<HTMLElement> {
+            return merge(this, elems);
         }
 
         // ================== MQUERY PROPERTIES =================== //
 
         /**
+         * Shorthand to concat all matched elements based on itVal function.
+         */
+        private eachConcat(itVal: Function): string {
+            let value = '';
+            this.each((i, elem) => {
+                value += `${itVal.apply(elem, [i, elem])}`;
+            });
+            return value.trim() || void 0;
+        }
+
+        /**
          * [ONLY MQUERY] Return all leaf elements (elements without child).
          */
         public leaves(): mQuery {
-            return this.find('*').filter((_, elem) => !elem.firstElementChild);
+            return this.find('*').filter((i, elem) => !elem.firstElementChild, this);
         }
 
         /**
@@ -198,52 +234,16 @@ export namespace m$ {
 
         public on(events: string, selector: string | EventListener, handler?: EventListener): this {
             let $elems: mQuery = this;
-
-            if (isSet(handler)) {
+            if (arguments.length === 3) {
                 $elems = this.find(<string>selector);
             } else {
                 handler = <EventListener>selector;
             }
-
-            $elems.each((_, elem) => {
+            $elems.each((i, elem) => {
                 events.split(' ').forEach((event) => {
                     elem.addEventListener(event, handler, true);
                 });
             });
-            return this;
-        }
-
-        /**
-         * Attach a handler to an event for the elements. The handler is executed at most once per element per event type.
-         * @param events One or more space-separated event types.
-         * @param selector A selector string to filter the descendants of the selected elements that trigger the event.
-         * @param handler A function to execute when the event is triggered.
-         */
-        public one(events: string, selector: string, handler: EventListener): this;
-        /**
-         * Attach a handler to an event for the elements. The handler is executed at most once per element per event type.
-         * @param events One or more space-separated event types.
-         * @param handler A function to execute when the event is triggered.
-         */
-        public one(events: string, handler: EventListener): this;
-
-        public one(events: string, selector: string | EventListener, handler?: EventListener): this {
-            let $elems: mQuery = this, oneHandler: EventListener;
-
-            if (isSet(handler)) {
-                $elems = this.find(<string>selector);
-            } else {
-                handler = <EventListener>selector;
-            }
-
-            events.split(' ').forEach((event) => {
-                oneHandler = function () {
-                    m$(this).off(event, oneHandler);
-                    return handler.apply(this, arguments);
-                };
-                $elems.on(event, oneHandler);
-            });
-
             return this;
         }
 
@@ -253,27 +253,22 @@ export namespace m$ {
          * @param selector A selector which should match the one originally passed to .on() when attaching event handlers.
          * @param handler A handler function previously attached for the event(s).
          */
-        public off(events: string, selector: string, handler: EventListener): this;
+        public off(event: string, selector: string, handler: EventListener): this;
         /**
          * Remove an event handler.
          * @param events One or more space-separated event types.
          * @param handler A handler function previously attached for the event(s).
          */
-        public off(events: string, handler: EventListener): this;
+        public off(event: string, handler: EventListener): this;
 
-        public off(events: string, selector?: string | EventListener, handler?: EventListener): this {
-            let $elems: mQuery = this;
+        public off(event: string, selector?: string | EventListener, handler?: EventListener): this {
+            if (arguments.length === 2) { handler = <EventListener>selector; }
 
-            if (isSet(handler)) {
-                $elems = this.find(<string>selector);
-            } else {
-                handler = <EventListener>selector;
-            }
-
-            $elems.each((_, elem) => {
-                events.split(' ').forEach((event) => {elem.removeEventListener(event, handler, true)});
+            let events = event.split(' '),
+                elems = arguments.length === 3 ? this.filter(<string>selector) : this;
+            elems.each((i, elem) => {
+                events.forEach((event) => { elem.removeEventListener(event, handler, true) });
             });
-
             return this;
         }
 
@@ -333,26 +328,18 @@ export namespace m$ {
 
         public not(filter): mQuery {
             return this.filter(typeOf(filter, 'string') ? 
-                (_, elem) => !matches(elem, filter) : 
+                (i, elem) => !matches(elem, filter) : 
                 (i, elem) => !filter.call(elem, i, elem)
             );
         }
 
-        /**
-         * Reduce the set of matched elements to those that have a descendant that matches the selector.
-         * @param selector A string containing a selector expression to match elements against.
-         */
         public has(selector: string): mQuery;
-        /**
-         * Reduce the set of matched elements to those that have a descendant that matches the element.
-         * @param elem A DOM element child to match.
-         */
         public has(elem: Node): mQuery;
 
         public has(selector): mQuery {
-            let elems = m$(void 0, this), isStr = typeOf(selector, 'string');
+            let elems = m$([], this), isStr = typeOf(selector, 'string');
 
-            this.each((_, elem) => {
+            this.each((i, elem) => {
                 if (isStr ? elem.querySelector(selector) : elem.contains(selector)) {
                     elems.push(elem);
                 }
@@ -366,13 +353,11 @@ export namespace m$ {
          * @param selector A string containing a selector expression to match elements against.
          */
         public find(selector: string): mQuery {
-            let elems = m$(void 0, this);
+            let elems = m$([], this), nodeList;
 
-            try {
-                this.each((_, elem) => {
-                    elems.concat(elem.querySelectorAll(selector));
-                });
-            } catch (e) {}
+            this.each((i, elem) => {
+                elems.concat(elem.querySelectorAll(selector));
+            });
 
             return elems;
         }
@@ -382,9 +367,9 @@ export namespace m$ {
          * @param selector A string containing a selector expression to match elements against.
          */
         public parent(selector?: string): mQuery {
-            let parents = m$(void 0, this);
+            let parents = m$([], this);
 
-            this.each((_, elem) => {
+            this.each((i, elem) => {
                 if (!hasParent(elem)) {return; }
                 elem = elem.parentElement;
 
@@ -401,7 +386,7 @@ export namespace m$ {
          * @param selector A string containing a selector expression to match elements against.
          */
         public parents(selector?: string): mQuery {
-            let parents = m$(void 0), newParents = this.parent();
+            let parents = m$(), newParents = this.parent();
 
             do {
                 parents.concat(newParents);
@@ -425,13 +410,13 @@ export namespace m$ {
          * @param params Additional parameters to pass along to the event handler.
          */
         public trigger(event: string, params?: PlainObject): mQuery {
-            return this.each((_, elem) => {
+            return this.each((i, elem) => {
                 if (event === 'focus') {
                     elem.focus();
                     return;
                 }
                 let customEvent;
-                if (WIN && WIN['CustomEvent']) {
+                if (window && window['CustomEvent']) {
                     customEvent = new CustomEvent(event, <Object>params);
                 } else {
                     customEvent = DOC.createEvent(snakeToCamelCase(event));
@@ -461,7 +446,7 @@ export namespace m$ {
         public attr(attrs: PlainObject | string, value?: string | null): this | string | void {
             // attr(attrName: string, value: string | null): this;
             if (isSet(value)) {
-                return this.each((_, elem) => {
+                return this.each((i, elem) => {
                     if (value === null) { this.removeAttr(<string>attrs); }
                     elem.setAttribute(<string>attrs, value);
                 });
@@ -476,7 +461,7 @@ export namespace m$ {
             }
 
             // attr(attrName: string): string;
-            return isEmpty(this) ? void 0 : (this[0].getAttribute(<string>attrs) || void 0);
+            return empty(this) ? void 0 : (this[0].getAttribute(<string>attrs) || void 0);
         }
 
         /**
@@ -484,7 +469,7 @@ export namespace m$ {
          * @param attrNames An attribute to remove, it can be a space-separated list of attributes. 
          */
         public removeAttr(attrNames: string): this {
-            return this.each((_, elem) => {
+            return this.each((i, elem) => {
                 attrNames.split(' ').forEach((attrName) => {
                     elem.removeAttribute(attrName);
                 });
@@ -508,10 +493,10 @@ export namespace m$ {
          */
         public prop(propName: string, value: string): this;
 
-        public prop(props, value?: string) {
+        public prop(props: any, value?: string): this | any {
             // prop(propName: string, value: string): this;
             if (isSet(value)) {
-                return this.each((_, elem) => {
+                return this.each((i, elem) => {
                     if (isSet(elem[props])) {
                         elem[props] = value;
                         return;
@@ -529,7 +514,7 @@ export namespace m$ {
             }
 
             // prop(propName: string): any;
-            if (isEmpty(this)) {return void 0; }
+            if (empty(this)) {return void 0; }
             if (isSet(this[0][props])) {
                 return this[0][props];
             }
@@ -541,7 +526,7 @@ export namespace m$ {
          * @param propNames An property to remove, it can be a space-separated list of attributes
          */
         public removeProp(propNames: string): this {
-            return this.each((_, elem) => {
+            return this.each((i, elem) => {
                 propNames.split(' ').forEach((propName) => {
                     if (isSet(elem[propName])) {
                         delete elem[propName];
@@ -554,9 +539,9 @@ export namespace m$ {
 
         /**
          * Get the computed style properties for the first element in the set of matched elements.
-         * @param styleName A CSS property.
+         * @param propName A CSS property.
          */
-        public css(styleName: string): string;
+        public css(propName: string): string;
         /**
          * Set one or more CSS properties for the set of matched elements.
          * @param properties An object of property-value pairs to set.
@@ -564,39 +549,24 @@ export namespace m$ {
         public css(properties: PlainObject): this;
         /**
          * Set one or more CSS properties for the set of matched elements.
-         * @param styleName A CSS property name.
+         * @param propName A CSS property name.
          * @param value A value to set for the property.
          */
-        public css(styleName: string, value: string | number): this;
+        public css(propName: string, value: string): this;
 
-        public css(styleName, value?): this | string {
-            if (!typeOf(styleName, 'string')) {
-                each(styleName, (key, value) => {this.css(key, value)});
+        public css(prop: any, value?: string): this | string {
+            if (!typeOf(prop, 'string')) {
+                each(prop, (key, value) => {this.css(key, value)});
                 return this;
             }
 
+            let name = snakeToCamelCase(prop);
             if (isSet(value)) {
-                if (typeOf(value, 'number')) {value += 'px'; }
-                return this.each((_, elem) => {elem.style[styleName] = value});
+                return this.each((i, elem) => {
+                    elem.style[name] = value;
+                });
             }
-
-            if (isEmpty(this)) {return void 0; }
-
-            let elem: any = this[0],
-                view = elem.ownerDocument.defaultView;
-
-            if (view && view.getComputedStyle) {
-                return view.getComputedStyle(elem, void 0).getPropertyValue(styleName);
-            }
-
-            styleName = snakeToCamelCase(styleName);
-
-            if (elem.currentStyle) {
-                return elem.currentStyle[styleName];
-            }
-
-            console.warn('Returning HTMLElement.style, this may not corresponding to the current style.');
-            return elem.style[styleName];
+            return empty(this) ? void 0 : this[0].style[name];
         }
 
         /**
@@ -611,15 +581,11 @@ export namespace m$ {
 
         public text(text?: string): this | string {
             if (isSet(text)) {
-                return this.each((_, elem) => {
+                return this.each((i, elem) => {
                     elem.textContent = text;
                 });
             }
-            let value = '';
-            this.each((_, elem) => {
-                value += elem.textContent;
-            });
-            return value.trim() || void 0;
+            return this.eachConcat((i, elem) => elem.textContent);
         }
 
         /**
@@ -634,11 +600,11 @@ export namespace m$ {
 
         public html(htmlString?: string): this | string {
             if (isSet(htmlString)) {
-                return this.each((_, elem) => {
+                return this.each((i, elem) => {
                     elem.innerHTML = htmlString;
                 });
             }
-            return isEmpty(this) ? void 0 : this[0].innerHTML;
+            return empty(this) ? void 0 : this[0].innerHTML;
         }
 
         /**
@@ -647,7 +613,7 @@ export namespace m$ {
          */
         public children(selector?: string): mQuery {
             let elems = m$();
-            this.each((_, elem) => {elems.concat(elem.children)});
+            this.each((i, elem) => {elems.concat(elem.children)});
             return selector ? elems.filter(selector, this) : elems;
         }
 
@@ -655,14 +621,14 @@ export namespace m$ {
          * Reduce the set of matched elements to the first in the set.
          */
         public first(): mQuery {
-            return m$(this.get(0));
+            return m$(empty(this) ? void 0 : this[0]);
         }
 
         /**
          * Reduce the set of matched elements to the final one in the set.
          */
         public last(): mQuery {
-            return m$(this.get(-1));
+            return m$(empty(this) ? void 0 : this[this.length - 1]);
         }
 
         /**
@@ -671,8 +637,8 @@ export namespace m$ {
          */
         public siblings(selector?: string): mQuery {
             let siblings = m$([], this);
-            this.each((_, elem) => {
-                each(elem.parentElement.children, (_, child) => {
+            this.each((i, elem) => {
+                each(elem.parentElement.children, (i, child) => {
                     if (child === elem) { return; }
                     if (!matches(child, selector)) { return; }
                     siblings.push(child);
@@ -687,7 +653,7 @@ export namespace m$ {
          */
         public prev(selector?: string): mQuery {
             let prev = m$([], this);
-            this.each((_, elem) => {
+            this.each((i, elem) => {
                 let prevElem = elem.previousElementSibling;
                 if (matches(prevElem, selector)) {
                     prev.push(prevElem);
@@ -703,7 +669,7 @@ export namespace m$ {
          */
         public next(selector?: string): mQuery {
             let next = m$([], this);
-            this.each((_, elem) => {
+            this.each((i, elem) => {
                 let nextElem = elem.nextElementSibling;
                 if (matches(nextElem, selector)) {
                     next.push(nextElem);
@@ -718,16 +684,11 @@ export namespace m$ {
          */
         public prepend(...contents): this {
             let rawChildren = contents.reverse();
-            return this.each((_, parent) => {
+            return this.each((i, parent) => {
                 setChildren(rawChildren,
                     (child) => {parent.insertBefore(child, parent.firstChild)},
                     (str) => {parent.insertAdjacentHTML('afterbegin', str)});
             });
-        }
-
-        public prependTo(selector?): this {
-            m$(selector).prepend(this);
-            return this;
         }
 
         /**
@@ -735,16 +696,11 @@ export namespace m$ {
          * @param contents DOM element, text node, array of elements and text nodes, HTML string, or mQuery object to insert at the end of each element in the set of matched elements.
          */
         public append(...contents): this {
-            return this.each((_, parent) => {
+            return this.each((i, parent) => {
                 setChildren(contents,
                     (child) => {parent.appendChild(child)},
                     (str) => {parent.insertAdjacentHTML('beforeend', str)});
             });
-        }
-
-        public appendTo(selector?): this {
-            m$(selector).append(this);
-            return this;
         }
 
         /**
@@ -757,7 +713,7 @@ export namespace m$ {
          * Store arbitrary data associated with the matched elements.
          * @param obj An object of key-value pairs of data to update.
          */
-        public data(obj: PlainObject): this;
+        public data(obj: Object): this;
         /**
          * Return the value at the named data store for the first element in the collection, as set by data(name, value) or by an HTML5 data-* attribute.
          * @param key Name of the data stored.
@@ -771,7 +727,7 @@ export namespace m$ {
         public data(key: string | number, value: any): this;
 
         public data(keyOrObj?: any, value?: any): this | any {
-            if (isEmpty(this)) {return void 0; }
+            if (empty(this)) {return void 0; }
 
             // data(): any;
             if (!isSet(keyOrObj)) {
@@ -780,13 +736,13 @@ export namespace m$ {
 
             // data(key: string | number, value: any): this;
             if (isSet(value)) {
-                return this.each((_, elem) => {
+                return this.each((i, elem) => {
                     dataRef(elem, false)[keyOrObj] = value;
                 });
             }
 
             // data(key: string | number): any;
-            if (typeOf(keyOrObj, ['string', 'number'])) {
+            if (typeOf(keyOrObj, 'string number')) {
                 return dataRef(this[0], keyOrObj);
             }
             
@@ -820,7 +776,7 @@ export namespace m$ {
          * @param className One or more space-separated classes to be added to the class attribute of each matched element.
          */
         public addClass(className: string): this {
-            return this.each((_, elem) => {
+            return this.each((i, elem) => {
                 className.split(' ').forEach((addClass) => {
                     elem.classList.add(addClass);
                 });
@@ -832,7 +788,7 @@ export namespace m$ {
          * @param className One or more space-separated classes to be removed from the class attribute of each matched element.
          */
         public removeClass(className: string): this {
-            return this.each((_, elem) => {
+            return this.each((i, elem) => {
                 className.split(' ').forEach((rmClass) => {
                     elem.classList.remove(rmClass);
                 });
@@ -844,7 +800,7 @@ export namespace m$ {
          * @param className The class name to search for.
          */
         public hasClass(className: string): boolean {
-            return some(this, (_, elem) => elem.classList.contains(className));
+            return some(this, (i, elem) => elem.classList.contains(className));
         }
 
         /**
@@ -852,7 +808,7 @@ export namespace m$ {
          * @param className One or more class names (separated by spaces) to be toggled for each element in the matched set.
          */
         public toggleClass(className: string): this {
-            return this.each((_, elem) => { elem.classList.toggle(className) });
+            return this.each((i, elem) => { elem.classList.toggle(className) });
         }
 
         /**
@@ -861,7 +817,7 @@ export namespace m$ {
          */
         public remove(selector?: string): mQuery {
             let elems = m$([], this);
-            this.each((_, elem) => {
+            this.each((i, elem) => {
                 if (matches(elem, selector)) {
                     if (elem.remove) {
                         elem.remove();
@@ -881,50 +837,32 @@ export namespace m$ {
          * Remove all child nodes of the set of matched elements from the DOM.
          */
         public empty(): this {
-            return this.each((_, elem) => {emptyElement(elem)});
+            return this.each((i, elem) => {elem.innerHTML = ''});
+        }
+
+        public map(beforePush: (value, index) => any): ArrayLike<any> {
+            return map(this, beforePush);
         }
 
         /**
-         * Pass each element in the current matched set through a function, producing a new mQuery object containing the return values.
-         * @param beforePush The function to process each item.
+         * Return width of first element on list.
          */
-        public map(beforePush: (element, index) => any): mQuery {
-            return <mQuery>map(this, beforePush, m$(void 0, this));
+        public width(): number {
+            return empty(this) ? void 0 : this[0].clientWidth;
         }
 
         /**
-         * Retrieve one of the elements matched. If index was not passed, return an array with all elements.
-         * @param index A zero-based integer indicating which element to retrieve.
+         * Return height of first element on list.
          */
-        public get(index?: number): HTMLElement[] | HTMLElement | void {
-            if (!isSet(index)) {return makeArray(this); }
-            if (index < 0) {index = this.length + index; }
-            return index >= 0 && index < this.length ? this[index] : void 0;
-        }
-
-        public width(value?): mQuery | number {
-            return size(this, 'Width', value);
-        }
-
-        public height(value?): mQuery | number {
-            return size(this, 'Height', value);
-        }
-
-        /**
-         * Merge the contents of an object onto the mQuery prototype to provide new mQuery instance methods.
-         * @param obj An object to merge onto the jQuery prototype.
-         */
-        public extend(obj: Object): void {
-            each(obj, (key, value) => {fn[key] = value});
+        public height(): number {
+            return empty(this) ? void 0 : this[0].clientHeight;
         }
     }
 
-    
     export const Class = mQuery;
     export const fn = mQuery.prototype;
-    export const prototype = fn;
 
-    (<any>fn).splice = Array.prototype.splice;
+    // Static functions
 
     /* *** ============================  Utils  ============================ *** */
 
@@ -941,42 +879,29 @@ export namespace m$ {
      * @param param Parameter to be verified.
      */
     export function isFalse(param: any): boolean {
-        if (isArrayLike(param)) {return !param.length; }
+        if (isArrayLike(param)) {
+            return !param.length;
+        }
         return !param || (param == false && param !== '0');
     }
 
     /**
      * Verify if array-like object is empty
      */
-    function isEmpty(arr: ArrayLike<any>): boolean {
+    function empty(arr: ArrayLike<any>): boolean {
         return !arr || !arr.length;
-    }
-
-    function emptyElement(elem: Node): void {
-        while (elem.lastChild) {elem.removeChild(elem.lastChild)}
-    }
-
-    export function instanceOf(obj: any, ...classes): boolean {
-        return some(classes, (_, cl) => obj instanceof cl);
     }
 
     /**
      * Verify the type of object passed and compare.
      */
-    export function typeOf(obj: any, types: string | string[]): boolean {
-        let matched = (typeof obj).toLowerCase(),
-            some = (type) => {
-                if (matched === 'object') {
-                    if (type === 'document')    {return obj instanceof Document; }
-                    if (type === 'element')     {return obj instanceof Element; }
-                    if (type === 'mquery')      {return obj instanceof mQuery; }
-                    if (type === 'window')      {return obj instanceof Window; }
-                }
-                return matched === type;
-            };
-
-        if (Array.isArray(types)) {return types.some(some); }
-        return some(types);
+    function typeOf(obj: any, types: string): boolean {
+        return types.split(' ').some((t) => {
+            if (t === 'array-like' && isArrayLike(obj)) {
+                return true;
+            }
+            return t === type(obj);
+        });
     }
 
     /**
@@ -984,37 +909,6 @@ export namespace m$ {
      */
     function snakeToCamelCase(s: string | number): string {
         return (s+'').replace(/(\-\w)/g, (m) => m[1].toUpperCase());
-    }
-
-    /**
-     * Return size of first element on list.
-     */
-    function size(inst: mQuery, dim: string, value?): mQuery | number {
-        if (isSet(value)) {
-            if (isEmpty(inst) || !typeOf(inst[0], 'element')) {return inst; }
-            return inst.css(dim.toLowerCase(), value);
-        }
-
-        if (isEmpty(inst)) {return void 0; }
-
-        const obj: any = inst[0];
-        if (typeOf(obj, 'document')) {
-            const   html = obj.documentElement,
-                    body = obj.body;
-            return Math.max(
-                html[`client${dim}`],
-                html[`offset${dim}`],
-                html[`scroll${dim}`],
-                body[`offset${dim}`],
-                body[`scroll${dim}`]
-            );
-        }
-
-        if (typeOf(obj, 'window')) {
-            return obj[`inner${dim}`];
-        }
-
-        return parseFloat(inst.css(dim.toLowerCase()));
     }
 
     /**
@@ -1031,9 +925,9 @@ export namespace m$ {
      * Verify if element matches selector.
      */
     function matches(elem: Element, selector: string): boolean {
-        if (!isSet(selector)) {return true; }
-        if (elem.matches) {return elem.matches(selector); }
-        emptyElement(AUX_ELEM);
+        if (!isSet(selector)) { return true; }
+        if (elem.matches) { return elem.matches(selector); }
+        AUX_ELEM.innerHTML = '';
         AUX_ELEM.appendChild(elem);
         return !!AUX_ELEM.querySelector(selector);
     }
@@ -1042,70 +936,53 @@ export namespace m$ {
      * Verify if element has parent.
      */
     function hasParent(elem: Node): boolean {
-        return !!elem.parentNode;
+        return !!elem.parentNode && elem.parentNode !== AUX_ELEM;
     }
 
     /**
      * Generate list of elements to concat.
      */
-    function generateNodeArray(selector: any, context: mQuery): HTMLElement[] | mQuery {
+    function generateNodeArray(context: mQuery, selector?: any): HTMLElement[] | mQuery {
+        if (!isSet(selector)) {return []; }
+
         if (typeOf(selector, 'string')) {
-            return context.find(selector);
+            return makeArray(context.find(selector));
         }
 
-        if (isArrayLike(selector)) {
+        if (typeOf(selector, 'array-like')) {
             return selector;
         }
 
         return [selector];
     }
 
-    function getContext(selector: any): mQuery {
-        if (!selector) {return ROOT; }
-
-        // If mQuery was passed, then return this mQuery
-        if (selector instanceof mQuery) {return selector; }
-
-        // Create new instance
-        return m$(selector, selector.prevObject || ROOT);
-    }
-
-    /**
-     * Add elements into instance passed by argument or return defaults.
-     */
-    export function createList(inst: mQuery, selector: any): mQuery {
-        // Try create selection with querySelector function
-        try {
-            merge(inst, generateNodeArray(selector, inst.prevObject));
-
-        // If querySelector thrown some error, try create element using HTML Parser
-        } catch (e) {
-            merge(inst, makeArray(parseHTML(selector)));
-        }
-
-        return inst;
-    }
-
     /**
      * Generic child insertion.
      */
-    function setChildren(children: ArrayLike<string | number | ArrayLike<any>>, elemInsertFn: Function, stringInsertFn: Function): void {
-        each(children, (_, child) => {
-            // If arrayLike
-            if (isArrayLike(child)) {
-                return setChildren(child, elemInsertFn, stringInsertFn);
+    function setChildren(rawChildren: any, elemInsertFn: Function, stringInsertFn: Function): void {
+        each(rawChildren, (i, children) => {
+            // If array
+            if (typeOf(children, 'array')) {
+                return setChildren(children, elemInsertFn, stringInsertFn);
+            }
+
+            // If mQuery and jQuery instance
+            if (typeOf(children, 'array-like')) {
+                return children.each((i, child) => {
+                    if (hasParent(child)) {
+                        return stringInsertFn(child.outerHTML);
+                    }
+                    elemInsertFn(child);
+                });
             }
 
             // If string
-            if (typeOf(child, ['string', 'number'])) {
-                return stringInsertFn(child);
+            if (typeOf(children, 'string number')) {
+                return stringInsertFn(children);
             }
 
             // If node
-            if (!hasParent(child)) {
-                return elemInsertFn(child);
-            }
-            return stringInsertFn(child.outerHTML);
+            return elemInsertFn(children);
         });
     }
 
@@ -1139,14 +1016,17 @@ export namespace m$ {
     }
 
     /**
-     * [MQUERY ONLY] Verify if object is array-like.
+     * Verify if object is array-like.
      * @param obj Object to be verified.
      */
     export function isArrayLike(obj): boolean {
         if (Array.isArray(obj)) {return true; }
-        if (!obj || typeOf(obj, ['function', 'string', 'window'])) {return false; }
 
-        let length = obj.length;
+        var length = obj && obj.length,
+            type = (typeof obj).toLowerCase();
+        if (type === 'function' || type === 'window' || type === 'string') {
+            return false;
+        }
         return typeof length === "number" && (length === 0 || (length > 0  && (length - 1) in obj));
     }
 
@@ -1156,7 +1036,13 @@ export namespace m$ {
      * @param second The second array-like object to merge into the first, unaltered.
      */
     export function merge(first: any, second: any): ArrayLike<any> {
-        each(second, (_, elem) => {first.push(elem)});
+        if (second.forEach) {
+            second.forEach((elem) => {first.push(elem)});
+        } else if (second.each) {
+            second.each((i, elem) => {first.push(elem)});
+        } else {
+            throw Error('Concat method not found.');
+        }
         return first;
     }
 
@@ -1165,7 +1051,7 @@ export namespace m$ {
      * @param obj Any object to turn into a native Array.
      */
     export function makeArray(obj: ArrayLike<any>): any[] {
-        return obj.length === 1 ? [obj[0]] : Array.apply(null, obj);
+        return Array.prototype.slice.call(obj || []);
     }
 
     /**
@@ -1214,11 +1100,13 @@ export namespace m$ {
     /**
      * Translate all items in an array or object to new array of items.
      * @param arr The Array or object to translate.
-     * @param beforePush The function to process each item.
-     * @param newArr [ONLY MQUERY] List to add elements.
+     * @param beforePush The function to process each item against.
+     * @param newArr [ONLY MQUERY] Optional: List to add elements.
      */
-    export function map(arr: ArrayLikeObject, beforePush: (value, index) => any, newArr: any = []): ArrayLike<any> {
-        each(arr, (i, value) => {newArr.push(beforePush.call(value, value, i))});
+    export function map(arr: ArrayLikeObject, beforePush: (value, index) => any, newArr = []): any[] {
+        each(arr, (i, value) => {
+            newArr.push(beforePush(value, i));
+        });
         return newArr;
     }
 
@@ -1235,7 +1123,7 @@ export namespace m$ {
      * Check to see if an object is empty (contains no enumerable properties)
      * @param obj The object that will be checked to see if it's empty.
      */
-    export function isEmptyObject(obj): boolean {
+    export function isEmptyObject(obj) {
 		for (let _ in obj) {return false; }
 		return true;
     }
@@ -1254,11 +1142,17 @@ export namespace m$ {
      * Transform HTML/XML code to list of elements.
      * @param htmlString HTML/XML code.
      */
-    export function parseHTML(htmlString: string): any[] {
+    export function parseHTML(htmlString: string): NodeList {
         AUX_ELEM.innerHTML = htmlString;
-        let returnArr = makeArray(AUX_ELEM.childNodes);
-        emptyElement(AUX_ELEM);
-        return returnArr;
+        return AUX_ELEM.childNodes;
+    }
+
+    /**
+     * Merge the contents of an object onto the jQuery prototype to provide new jQuery instance methods.
+     * @param obj An object to merge onto the jQuery prototype.
+     */
+    export function append(obj: Object): void {
+        each(obj, (key, value) => {fn[key] = value});
     }
 
     /**
@@ -1322,7 +1216,7 @@ export namespace m$ {
         let rawCookies = DOC.cookie.split(';');
 
         // Find cookie with 'name'
-        each(rawCookies, (_, cookie) => {
+        each(rawCookies, (i, cookie) => {
             cookie = cookie.trim();
             if (cookie.indexOf(name) !== 0) {return true; }
 
@@ -1387,7 +1281,7 @@ export namespace m$ {
             },
 
             // Deferred => reject
-            reject = (textStatus, _e) => {
+            reject = (textStatus, errorMessage) => {
                 let errorThrown = request.statusText.replace(/^[\d*\s]/g, '');
                 deferred.rejectWith(context, request, textStatus, errorThrown);
             };
@@ -1395,7 +1289,7 @@ export namespace m$ {
         // Set ajax default callbacks (success, error and complete)
         deferred.then(settings.success, settings.error);
         if (isSet(settings.complete)) {
-            deferred.done((_d, _s, request) => {
+            deferred.done((data, status, request) => {
                 settings.complete.apply(this, [request, 'success']);
             }).fail((request, textStatus) => {
                 settings.complete.apply(this, [request, textStatus]);
@@ -1472,7 +1366,7 @@ export namespace m$ {
             name = (prefix || isArr) ? `${prefix}[${key}]` : key;
 
             // If string or number, set uri
-            uri.push(forceString || typeOf(value, ['string', 'number']) ? 
+            uri.push(forceString || typeOf(value, 'string number') ? 
                 `${e(name)}=${e(value)}` :
                 buildParam(value, name));
         });
@@ -1573,7 +1467,7 @@ export namespace m$ {
      * A factory function that returns a chainable utility object with methods to register multiple callbacks into callback queues, invoke callback queues, and relay the success or failure state of any synchronous or asynchronous function.
      * @param beforeStart A function that is called just before the constructor returns.
      */
-    export function Deferred(beforeStart?: Function): Deferred {
+    export function Deferred(beforeStart?: Function): m$.Deferred {
         return new m$.Promise.Deferred(beforeStart);
     }
 
@@ -1677,7 +1571,7 @@ export namespace m$.Promise {
             return this;
         }
 
-        public then(successFilter: (...args) => any, errorFilter?: (...args: any[]) => any): Deferred {
+        public then(successFilter: (...args) => any, errorFilter?: (...args: any[]) => any, progressFilter?: (...args: any[]) => any): Deferred {
             return this.done(successFilter).fail(errorFilter);
         }
 
