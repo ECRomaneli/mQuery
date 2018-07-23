@@ -404,10 +404,6 @@ export declare namespace m$ {
      */
     function typeOf(obj: any, types: string | string[]): boolean;
     /**
-     * Add elements into instance passed by argument or return defaults.
-     */
-    function createList(inst: mQuery, selector: any): mQuery;
-    /**
      * [MQUERY ONLY] Verify if object is array-like.
      * @param obj Object to be verified.
      */
