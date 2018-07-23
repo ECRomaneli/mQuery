@@ -56,7 +56,7 @@ exports.mQuery = m$;
                 return ROOT.ready(selector);
             }
             this.prevObject = getContext(context);
-            return createList(this, selector);
+            return merge(this, generateNodeArray(selector, this.prevObject));
         }
         // =================== ARRAY PROPERTIES =================== //
         /**
@@ -203,10 +203,15 @@ exports.mQuery = m$;
             let elems = m$(void 0, this);
             try {
                 this.each((_, elem) => {
+                    if (!elem.querySelectorAll) {
+                        return;
+                    }
                     elems.concat(elem.querySelectorAll(selector));
                 });
             }
-            catch (e) { }
+            catch (e) {
+                throw new Error(`Syntax error, unrecognized expression: ${selector.trim()}`);
+            }
             return elems;
         }
         /**
@@ -742,6 +747,12 @@ exports.mQuery = m$;
      */
     function generateNodeArray(selector, context) {
         if (typeOf(selector, 'string')) {
+            if (selector.indexOf('<') !== -1) {
+                let elems = parseHTML(selector);
+                if (elems.length) {
+                    return elems;
+                }
+            }
             return context.find(selector);
         }
         if (isArrayLike(selector)) {
@@ -760,21 +771,6 @@ exports.mQuery = m$;
         // Create new instance
         return m$(selector, selector.prevObject || ROOT);
     }
-    /**
-     * Add elements into instance passed by argument or return defaults.
-     */
-    function createList(inst, selector) {
-        // Try create selection with querySelector function
-        try {
-            merge(inst, generateNodeArray(selector, inst.prevObject));
-            // If querySelector thrown some error, try create element using HTML Parser
-        }
-        catch (e) {
-            merge(inst, makeArray(parseHTML(selector)));
-        }
-        return inst;
-    }
-    m$.createList = createList;
     /**
      * Generic child insertion.
      */
