@@ -107,9 +107,7 @@ export namespace m$ {
             // If selector is a function
             if (typeOf(selector, 'function')) {return ROOT.ready(selector); }
 
-
-            this.prevObject = getContext(context);
-            return <mQuery>merge(this, generateNodeArray(selector, this.prevObject));
+            return <mQuery>merge(this, generateNodeArray(selector, getContext(context)));
         }
 
         // =================== ARRAY PROPERTIES =================== //
@@ -1052,12 +1050,12 @@ export namespace m$ {
      * Generate list of elements to concat.
      */
     function generateNodeArray(selector: any, context: mQuery): HTMLElement[] | mQuery {
-
         if (typeOf(selector, 'string')) {
             if (selector.indexOf('<') !== -1) {
                 let elems = parseHTML(selector);
                 if (elems.length) {return elems; }
             }
+            this.prevObject = context;
             return context.find(selector);
         }
 
