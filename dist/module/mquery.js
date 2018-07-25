@@ -55,8 +55,7 @@ exports.mQuery = m$;
             if (typeOf(selector, 'function')) {
                 return ROOT.ready(selector);
             }
-            this.prevObject = getContext(context);
-            return merge(this, generateNodeArray(selector, this.prevObject));
+            return merge(this, generateNodeArray(selector, getContext(context)));
         }
         // =================== ARRAY PROPERTIES =================== //
         /**
@@ -753,6 +752,7 @@ exports.mQuery = m$;
                     return elems;
                 }
             }
+            this.prevObject = context;
             return context.find(selector);
         }
         if (isArrayLike(selector)) {
