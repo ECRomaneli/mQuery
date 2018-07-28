@@ -12,7 +12,7 @@ export function m$(onReady: Function): mQuery;
  * @param selector A selector, DOM Element, Document, or mQuery to create instance.
  * @param context A DOM Element, Document, or mQuery to use as context.
  */
-export function m$(selector?: mQuery | NodeList | Node | Node[] | string | void, context?: mQuery | NodeList | Node | Node[] | string | void): mQuery;
+export function m$(selector?: mQuery | NodeList | Node | Node[] | string, context?: mQuery | NodeList | Node | Node[] | string): mQuery;
 
 export function m$(selector?, context?): mQuery {
     return new mQuery.Class(selector, context);
@@ -94,20 +94,38 @@ export namespace m$ {
          * Constructor.
          * @param selector mQuery | NodeList | Node | Node[] | QuerySelector | HTML String
          */
+
         constructor(selector?, context?) {
+
             // If selector is a false value with no context or is document
             let empty = isFalse(selector);
+
             if ((empty && !context) || typeOf(selector, ['document', 'window'])) {
                 // If has selector, then add selector into mQuery list
                 !empty && this.push(selector);
+
                 // Return mQuery instance
                 return this;
             }
 
-            // If selector is a function
+            // If selector is function
             if (typeOf(selector, 'function')) {return ROOT.ready(selector); }
 
-            return <mQuery>merge(this, generateNodeArray(selector, getContext(context)));
+            // If selector is NOT string
+            if (!typeOf(selector, 'string')) {
+                return <this>merge(this, createArr(selector));
+            }
+
+            // If is HTML, parse HTML and, if any element has been created merge
+            if (isHTML(selector)) {
+                let elems = parseHTML(selector);
+                if (elems.length) {
+                    return <this>merge(this, elems);
+                }
+            }
+
+            // If selector is not selector, find selector with querySelector
+            return find(this, createContext(context), selector);
         }
 
         // =================== ARRAY PROPERTIES =================== //
@@ -208,6 +226,7 @@ export namespace m$ {
                     elem.addEventListener(event, handler, true);
                 });
             });
+
             return this;
         }
 
@@ -297,15 +316,16 @@ export namespace m$ {
          * Reduce the set of matched elements to those that match the selector or pass the function's test.
          * @param filter A function used as a test for each element in the set. 'this' is the current DOM element.
          */
-        public filter(filter: Function, context?: mQuery): mQuery;
+        public filter(filter: Function): mQuery;
         /**
          * Reduce the set of matched elements to those that match the selector or pass the function's test.
          * @param selector A string containing a selector expression to match the current set of elements against.
          */
-        public filter(selector: string, context?: mQuery): mQuery;
+        public filter(selector: string): mQuery;
 
-        public filter(filter, context?): mQuery {
-            let elems = m$([], context || this), isStr = typeOf(filter, 'string');
+        public filter(filter): mQuery {
+            let elems = m$(), isStr = typeOf(filter, 'string');
+
             this.each((i, elem) => {
                 if (isStr) {
                     if (matches(elem, filter)) {
@@ -315,7 +335,8 @@ export namespace m$ {
                     elems.push(elem);
                 }
             });
-            return elems;
+
+            return setContext(elems, this);
         }
 
         /**
@@ -348,7 +369,7 @@ export namespace m$ {
         public has(elem: Node): mQuery;
 
         public has(selector): mQuery {
-            let elems = m$(void 0, this), isStr = typeOf(selector, 'string');
+            let elems = m$(), isStr = typeOf(selector, 'string');
 
             this.each((_, elem) => {
                 if (isStr ? elem.querySelector(selector) : elem.contains(selector)) {
@@ -356,7 +377,7 @@ export namespace m$ {
                 }
             });
 
-            return elems;
+            return setContext(elems, this);
         }
 
         /**
@@ -364,18 +385,7 @@ export namespace m$ {
          * @param selector A string containing a selector expression to match elements against.
          */
         public find(selector: string): mQuery {
-            let elems = m$(void 0, this);
-
-            try {
-                this.each((_, elem) => {
-                    if (!elem.querySelectorAll) {return; }
-                    elems.concat(elem.querySelectorAll(selector));
-                });
-            } catch (e) {
-                throw new Error(`Syntax error, unrecognized expression: ${selector.trim()}`);
-            }
-
-            return elems;
+            return find(m$(), this, selector);
         }
 
         /**
@@ -383,7 +393,7 @@ export namespace m$ {
          * @param selector A string containing a selector expression to match elements against.
          */
         public parent(selector?: string): mQuery {
-            let parents = m$(void 0, this);
+            let parents = m$();
 
             this.each((_, elem) => {
                 if (!hasParent(elem)) {return; }
@@ -394,7 +404,7 @@ export namespace m$ {
                 parents.push(elem);
             });
 
-            return parents;
+            return setContext(parents, this);
         }
 
         /**
@@ -402,15 +412,14 @@ export namespace m$ {
          * @param selector A string containing a selector expression to match elements against.
          */
         public parents(selector?: string): mQuery {
-            let parents = m$(void 0), newParents = this.parent();
+            let parents = m$(), newParents = this.parent();
 
             do {
                 parents.concat(newParents);
                 newParents = newParents.parent();
             } while (newParents.length);
 
-            parents = parents.filter(selector, this);
-            return parents;
+            return parents.filter(selector);
         }
 
         /**
@@ -446,7 +455,7 @@ export namespace m$ {
          * Get the value of an attribute for the first element in the set of matched elements.
          * @param attrName The name of the attribute to get.
          */
-        public attr(attrName: string): string | void;
+        public attr(attrName: string): string;
         /**
          * Set one or more attributes for the set of matched elements.
          * @param attrs An object of attribute-value pairs to set.
@@ -459,7 +468,7 @@ export namespace m$ {
          */
         public attr(attrName: string, value: string | null): this;
 
-        public attr(attrs: PlainObject | string, value?: string | null): this | string | void {
+        public attr(attrs: PlainObject | string, value?: string | null): this | string {
             // attr(attrName: string, value: string | null): this;
             if (isSet(value)) {
                 return this.each((_, elem) => {
@@ -649,21 +658,23 @@ export namespace m$ {
         public children(selector?: string): mQuery {
             let elems = m$();
             this.each((_, elem) => {elems.concat(elem.children)});
-            return selector ? elems.filter(selector, this) : elems;
+
+            elems.prevObject = this;
+            return selector ? elems.filter(selector) : elems;
         }
 
         /**
          * Reduce the set of matched elements to the first in the set.
          */
         public first(): mQuery {
-            return m$(this.get(0));
+            return setContext(m$(this.get(0)), this);
         }
 
         /**
          * Reduce the set of matched elements to the final one in the set.
          */
         public last(): mQuery {
-            return m$(this.get(-1));
+            return setContext(m$(this.get(-1)), this);
         }
 
         /**
@@ -671,7 +682,7 @@ export namespace m$ {
          * @param selector A string containing a selector expression to match elements against.
          */
         public siblings(selector?: string): mQuery {
-            let siblings = m$([], this);
+            let siblings = m$();
             this.each((_, elem) => {
                 each(elem.parentElement.children, (_, child) => {
                     if (child === elem) { return; }
@@ -679,7 +690,7 @@ export namespace m$ {
                     siblings.push(child);
                 });
             });
-            return siblings;
+            return setContext(siblings, this);
         }
 
         /**
@@ -687,7 +698,7 @@ export namespace m$ {
          * @param selector A string containing a selector expression to match elements against.
          */
         public prev(selector?: string): mQuery {
-            let prev = m$([], this);
+            let prev = m$();
             this.each((_, elem) => {
                 let prevElem = elem.previousElementSibling;
                 if (matches(prevElem, selector)) {
@@ -695,7 +706,7 @@ export namespace m$ {
                 }
                 prev.push(prevElem);
             });
-            return prev;
+            return setContext(prev, this);
         }
 
         /**
@@ -703,14 +714,14 @@ export namespace m$ {
          * @param selector A string containing a selector expression to match elements against.
          */
         public next(selector?: string): mQuery {
-            let next = m$([], this);
+            let next = m$();
             this.each((_, elem) => {
                 let nextElem = elem.nextElementSibling;
                 if (matches(nextElem, selector)) {
                     next.push(nextElem);
                 }
             }); 
-            return next;
+            return setContext(next, this);
         }
 
         /**
@@ -861,7 +872,7 @@ export namespace m$ {
          * @param selector A selector expression that filters the set of matched elements to be removed.
          */
         public remove(selector?: string): mQuery {
-            let elems = m$([], this);
+            let elems = m$();
             this.each((_, elem) => {
                 if (matches(elem, selector)) {
                     if (elem.remove) {
@@ -875,7 +886,7 @@ export namespace m$ {
                 }
                 elems.push(elem);
             });
-            return elems;
+            return setContext(elems, this);
         }
 
         /**
@@ -890,14 +901,14 @@ export namespace m$ {
          * @param beforePush The function to process each item.
          */
         public map(beforePush: (element, index) => any): mQuery {
-            return <mQuery>map(this, beforePush, m$(void 0, this));
+            return <mQuery>map(this, beforePush, setContext(m$(), this));
         }
 
         /**
          * Retrieve one of the elements matched. If index was not passed, return an array with all elements.
          * @param index A zero-based integer indicating which element to retrieve.
          */
-        public get(index?: number): HTMLElement[] | HTMLElement | void {
+        public get(index?: number): HTMLElement[] | HTMLElement {
             if (!isSet(index)) {return makeArray(this); }
             if (index < 0) {index = this.length + index; }
             return index >= 0 && index < this.length ? this[index] : void 0;
@@ -1049,24 +1060,12 @@ export namespace m$ {
     /**
      * Generate list of elements to concat.
      */
-    function generateNodeArray(selector: any, context: mQuery): HTMLElement[] | mQuery {
-        if (typeOf(selector, 'string')) {
-            if (selector.indexOf('<') !== -1) {
-                let elems = parseHTML(selector);
-                if (elems.length) {return elems; }
-            }
-            this.prevObject = context;
-            return context.find(selector);
-        }
-
-        if (isArrayLike(selector)) {
-            return selector;
-        }
-
+    function createArr(selector: any): HTMLElement[] | mQuery {
+        if (isArrayLike(selector)) {return selector; }
         return [selector];
     }
 
-    function getContext(selector: any): mQuery {
+    function createContext(selector: any): mQuery {
         if (!selector) {return ROOT; }
 
         // If mQuery was passed, then return this mQuery
@@ -1193,7 +1192,7 @@ export namespace m$ {
      * @param invert If true, the filter gonna return false to add element. Default false.
      * @param newArr [ONLY MQUERY] Optional: List to add elements.
      */
-    export function grep(arr: ArrayLike<any>, filter: (value, index) => boolean | void, invert = false, newArr: any = []): ArrayLike<any> {
+    export function grep(arr: ArrayLike<any>, filter: (value, index) => boolean, invert = false, newArr: any = []): ArrayLike<any> {
         each(arr, (i, value) => {
             if (filter(value, i) == invert) {return; }
             newArr.push(value);
@@ -1492,6 +1491,29 @@ export namespace m$ {
         settings.success = success;
 
         return ajax(settings);
+    }
+
+    function find(inst: mQuery, context: mQuery, selector: any): mQuery {
+        try {
+            context.each((_, elem) => {
+                if (!elem.querySelectorAll) { return }
+                merge(inst, elem.querySelectorAll(selector));
+            });
+            return setContext(inst, context);
+        } catch (e) {
+            throw new Error(`Syntax error, unrecognized expression: ${selector.trim()}`);
+        }
+
+        
+    }
+
+    function isHTML(text: string): boolean {
+        return text.indexOf('<') !== -1;
+    }
+
+    function setContext(inst, context): mQuery {
+        inst.prevObject = context;
+        return inst;
     }
 
     /**

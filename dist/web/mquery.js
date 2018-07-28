@@ -48,11 +48,23 @@ var mQuery = m$;
                 // Return mQuery instance
                 return this;
             }
-            // If selector is a function
+            // If selector is function
             if (typeOf(selector, 'function')) {
                 return ROOT.ready(selector);
             }
-            return merge(this, generateNodeArray(selector, getContext(context)));
+            // If selector is NOT string
+            if (!typeOf(selector, 'string')) {
+                return merge(this, createArr(selector));
+            }
+            // If is HTML, parse HTML and, if any element has been created merge
+            if (isHTML(selector)) {
+                var elems = parseHTML(selector);
+                if (elems.length) {
+                    return merge(this, elems);
+                }
+            }
+            // If selector is not selector, find selector with querySelector
+            return find(this, createContext(context), selector);
         }
         // =================== ARRAY PROPERTIES =================== //
         /**
@@ -165,8 +177,8 @@ var mQuery = m$;
                 return isStr ? matches(elem, filter) : filter.call(elem, i, elem);
             });
         };
-        mQuery.prototype.filter = function (filter, context) {
-            var elems = m$([], context || this), isStr = typeOf(filter, 'string');
+        mQuery.prototype.filter = function (filter) {
+            var elems = m$(), isStr = typeOf(filter, 'string');
             this.each(function (i, elem) {
                 if (isStr) {
                     if (matches(elem, filter)) {
@@ -177,7 +189,7 @@ var mQuery = m$;
                     elems.push(elem);
                 }
             });
-            return elems;
+            return setContext(elems, this);
         };
         mQuery.prototype.not = function (filter) {
             return this.filter(typeOf(filter, 'string') ?
@@ -185,39 +197,27 @@ var mQuery = m$;
                 function (i, elem) { return !filter.call(elem, i, elem); });
         };
         mQuery.prototype.has = function (selector) {
-            var elems = m$(void 0, this), isStr = typeOf(selector, 'string');
+            var elems = m$(), isStr = typeOf(selector, 'string');
             this.each(function (_, elem) {
                 if (isStr ? elem.querySelector(selector) : elem.contains(selector)) {
                     elems.push(elem);
                 }
             });
-            return elems;
+            return setContext(elems, this);
         };
         /**
          * Get the descendants of each element in the current set of matched elements, filtered by a selector.
          * @param selector A string containing a selector expression to match elements against.
          */
         mQuery.prototype.find = function (selector) {
-            var elems = m$(void 0, this);
-            try {
-                this.each(function (_, elem) {
-                    if (!elem.querySelectorAll) {
-                        return;
-                    }
-                    elems.concat(elem.querySelectorAll(selector));
-                });
-            }
-            catch (e) {
-                throw new Error("Syntax error, unrecognized expression: " + selector.trim());
-            }
-            return elems;
+            return find(m$(), this, selector);
         };
         /**
          * Get the parent of each element in the current set of matched elements, optionally filtered by a selector.
          * @param selector A string containing a selector expression to match elements against.
          */
         mQuery.prototype.parent = function (selector) {
-            var parents = m$(void 0, this);
+            var parents = m$();
             this.each(function (_, elem) {
                 if (!hasParent(elem)) {
                     return;
@@ -228,20 +228,19 @@ var mQuery = m$;
                 }
                 parents.push(elem);
             });
-            return parents;
+            return setContext(parents, this);
         };
         /**
          * Get the ancestors of each element in the current set of matched elements.
          * @param selector A string containing a selector expression to match elements against.
          */
         mQuery.prototype.parents = function (selector) {
-            var parents = m$(void 0), newParents = this.parent();
+            var parents = m$(), newParents = this.parent();
             do {
                 parents.concat(newParents);
                 newParents = newParents.parent();
             } while (newParents.length);
-            parents = parents.filter(selector, this);
-            return parents;
+            return parents.filter(selector);
         };
         /**
          * End the most recent filtering operation in the current chain and return the set of matched elements to its previous state.
@@ -399,26 +398,27 @@ var mQuery = m$;
         mQuery.prototype.children = function (selector) {
             var elems = m$();
             this.each(function (_, elem) { elems.concat(elem.children); });
-            return selector ? elems.filter(selector, this) : elems;
+            elems.prevObject = this;
+            return selector ? elems.filter(selector) : elems;
         };
         /**
          * Reduce the set of matched elements to the first in the set.
          */
         mQuery.prototype.first = function () {
-            return m$(this.get(0));
+            return setContext(m$(this.get(0)), this);
         };
         /**
          * Reduce the set of matched elements to the final one in the set.
          */
         mQuery.prototype.last = function () {
-            return m$(this.get(-1));
+            return setContext(m$(this.get(-1)), this);
         };
         /**
          * Get the siblings of each element in the set of matched elements, optionally filtered by a selector.
          * @param selector A string containing a selector expression to match elements against.
          */
         mQuery.prototype.siblings = function (selector) {
-            var siblings = m$([], this);
+            var siblings = m$();
             this.each(function (_, elem) {
                 each(elem.parentElement.children, function (_, child) {
                     if (child === elem) {
@@ -430,14 +430,14 @@ var mQuery = m$;
                     siblings.push(child);
                 });
             });
-            return siblings;
+            return setContext(siblings, this);
         };
         /**
          * Get the immediately preceding sibling of each element in the set of matched elements. If a selector is provided, it retrieves the previous sibling only if it matches that selector.
          * @param selector A string containing a selector expression to match elements against.
          */
         mQuery.prototype.prev = function (selector) {
-            var prev = m$([], this);
+            var prev = m$();
             this.each(function (_, elem) {
                 var prevElem = elem.previousElementSibling;
                 if (matches(prevElem, selector)) {
@@ -445,21 +445,21 @@ var mQuery = m$;
                 }
                 prev.push(prevElem);
             });
-            return prev;
+            return setContext(prev, this);
         };
         /**
          * Get the immediately following sibling of each element in the set of matched elements. If a selector is provided, it retrieves the next sibling only if it matches that selector.
          * @param selector A string containing a selector expression to match elements against.
          */
         mQuery.prototype.next = function (selector) {
-            var next = m$([], this);
+            var next = m$();
             this.each(function (_, elem) {
                 var nextElem = elem.nextElementSibling;
                 if (matches(nextElem, selector)) {
                     next.push(nextElem);
                 }
             });
-            return next;
+            return setContext(next, this);
         };
         /**
          * Insert content, specified by the parameter, to the beginning of each element in the set of matched elements.
@@ -568,7 +568,7 @@ var mQuery = m$;
          * @param selector A selector expression that filters the set of matched elements to be removed.
          */
         mQuery.prototype.remove = function (selector) {
-            var elems = m$([], this);
+            var elems = m$();
             this.each(function (_, elem) {
                 if (matches(elem, selector)) {
                     if (elem.remove) {
@@ -584,7 +584,7 @@ var mQuery = m$;
                 }
                 elems.push(elem);
             });
-            return elems;
+            return setContext(elems, this);
         };
         /**
          * Remove all child nodes of the set of matched elements from the DOM.
@@ -597,7 +597,7 @@ var mQuery = m$;
          * @param beforePush The function to process each item.
          */
         mQuery.prototype.map = function (beforePush) {
-            return map(this, beforePush, m$(void 0, this));
+            return map(this, beforePush, setContext(m$(), this));
         };
         /**
          * Retrieve one of the elements matched. If index was not passed, return an array with all elements.
@@ -760,23 +760,13 @@ var mQuery = m$;
     /**
      * Generate list of elements to concat.
      */
-    function generateNodeArray(selector, context) {
-        if (typeOf(selector, 'string')) {
-            if (selector.indexOf('<') !== -1) {
-                var elems = parseHTML(selector);
-                if (elems.length) {
-                    return elems;
-                }
-            }
-            this.prevObject = context;
-            return context.find(selector);
-        }
+    function createArr(selector) {
         if (isArrayLike(selector)) {
             return selector;
         }
         return [selector];
     }
-    function getContext(selector) {
+    function createContext(selector) {
         if (!selector) {
             return ROOT;
         }
@@ -1163,6 +1153,27 @@ var mQuery = m$;
         settings.data = data;
         settings.success = success;
         return ajax(settings);
+    }
+    function find(inst, context, selector) {
+        try {
+            context.each(function (_, elem) {
+                if (!elem.querySelectorAll) {
+                    return;
+                }
+                merge(inst, elem.querySelectorAll(selector));
+            });
+            return setContext(inst, context);
+        }
+        catch (e) {
+            throw new Error("Syntax error, unrecognized expression: " + selector.trim());
+        }
+    }
+    function isHTML(text) {
+        return text.indexOf('<') !== -1;
+    }
+    function setContext(inst, context) {
+        inst.prevObject = context;
+        return inst;
     }
     function get(urlOrSettings, dataOrSuccess, success) {
         return requestBuilder(HTTP.GET, urlOrSettings, dataOrSuccess, success);
