@@ -10,7 +10,7 @@ export declare function m$(onReady: Function): mQuery;
  * @param selector A selector, DOM Element, Document, or mQuery to create instance.
  * @param context A DOM Element, Document, or mQuery to use as context.
  */
-export declare function m$(selector?: mQuery | NodeList | Node | Node[] | string | void, context?: mQuery | NodeList | Node | Node[] | string | void): mQuery;
+export declare function m$(selector?: mQuery | NodeList | Node | Node[] | string, context?: mQuery | NodeList | Node | Node[] | string): mQuery;
 export declare const mQuery: typeof m$;
 export declare namespace m$ {
     type Class = mQuery;
@@ -145,12 +145,12 @@ export declare namespace m$ {
          * Reduce the set of matched elements to those that match the selector or pass the function's test.
          * @param filter A function used as a test for each element in the set. 'this' is the current DOM element.
          */
-        filter(filter: Function, context?: mQuery): mQuery;
+        filter(filter: Function): mQuery;
         /**
          * Reduce the set of matched elements to those that match the selector or pass the function's test.
          * @param selector A string containing a selector expression to match the current set of elements against.
          */
-        filter(selector: string, context?: mQuery): mQuery;
+        filter(selector: string): mQuery;
         /**
          * Remove elements from the set of matched elements.
          * @param filter A function used as a test for each element in the set.
@@ -200,7 +200,7 @@ export declare namespace m$ {
          * Get the value of an attribute for the first element in the set of matched elements.
          * @param attrName The name of the attribute to get.
          */
-        attr(attrName: string): string | void;
+        attr(attrName: string): string;
         /**
          * Set one or more attributes for the set of matched elements.
          * @param attrs An object of attribute-value pairs to set.
@@ -381,7 +381,7 @@ export declare namespace m$ {
          * Retrieve one of the elements matched. If index was not passed, return an array with all elements.
          * @param index A zero-based integer indicating which element to retrieve.
          */
-        get(index?: number): HTMLElement[] | HTMLElement | void;
+        get(index?: number): HTMLElement[] | HTMLElement;
         width(value?: any): mQuery | number;
         height(value?: any): mQuery | number;
         /**
@@ -438,7 +438,7 @@ export declare namespace m$ {
      * @param invert If true, the filter gonna return false to add element. Default false.
      * @param newArr [ONLY MQUERY] Optional: List to add elements.
      */
-    function grep(arr: ArrayLike<any>, filter: (value: any, index: any) => boolean | void, invert?: boolean, newArr?: any): ArrayLike<any>;
+    function grep(arr: ArrayLike<any>, filter: (value: any, index: any) => boolean, invert?: boolean, newArr?: any): ArrayLike<any>;
     /**
      * Translate all items in an array or object to new array of items.
      * @param arr The Array or object to translate.
