@@ -134,12 +134,12 @@ export namespace m$ {
          * Insert element without repeat.
          */
         private push(elem: Node): this {
-            if (!isSet(elem)) {return this; }
+            if (!isSet(elem)) { return this }
 
             if (!elem[APP_NAME]) {
 
                 // Set APP_NAME property into Node
-                elem[APP_NAME] = {$ref: this};
+                elem[APP_NAME] = { $ref: this };
 
             } else {
 
@@ -147,7 +147,7 @@ export namespace m$ {
                 let prop = elem[APP_NAME];
 
                 // Verify if elem has been inserted inside this list before (last)
-                if (prop.$ref === this) {return this; }
+                if (prop.$ref === this) { return this }
 
                 // Add list reference to the element
                 prop.$ref = this;
@@ -396,10 +396,10 @@ export namespace m$ {
             let parents = m$();
 
             this.each((_, elem) => {
-                if (!hasParent(elem)) {return; }
+                if (!hasParent(elem)) { return }
                 elem = elem.parentElement;
 
-                if (!matches(elem, selector)) {return; }
+                if (!matches(elem, selector)) { return }
 
                 parents.push(elem);
             });
@@ -685,8 +685,8 @@ export namespace m$ {
             let siblings = m$();
             this.each((_, elem) => {
                 each(elem.parentElement.children, (_, child) => {
-                    if (child === elem) { return; }
-                    if (!matches(child, selector)) { return; }
+                    if (child === elem) { return }
+                    if (!matches(child, selector)) { return }
                     siblings.push(child);
                 });
             });
@@ -701,9 +701,7 @@ export namespace m$ {
             let prev = m$();
             this.each((_, elem) => {
                 let prevElem = elem.previousElementSibling;
-                if (matches(prevElem, selector)) {
-                    prev.push(prevElem);
-                }
+                if (!matches(prevElem, selector)) { return }
                 prev.push(prevElem);
             });
             return setContext(prev, this);
@@ -717,9 +715,8 @@ export namespace m$ {
             let next = m$();
             this.each((_, elem) => {
                 let nextElem = elem.nextElementSibling;
-                if (matches(nextElem, selector)) {
-                    next.push(nextElem);
-                }
+                if (!matches(nextElem, selector)) { return }
+                next.push(nextElem);
             }); 
             return setContext(next, this);
         }
@@ -833,8 +830,8 @@ export namespace m$ {
          */
         public addClass(className: string): this {
             return this.each((_, elem) => {
-                className.split(' ').forEach((addClass) => {
-                    elem.classList.add(addClass);
+                className.split(' ').forEach((name) => {
+                    elem.classList.add(name);
                 });
             });
         }
@@ -845,8 +842,8 @@ export namespace m$ {
          */
         public removeClass(className: string): this {
             return this.each((_, elem) => {
-                className.split(' ').forEach((rmClass) => {
-                    elem.classList.remove(rmClass);
+                className.split(' ').forEach((name) => {
+                    elem.classList.remove(name);
                 });
             });
         }
@@ -874,17 +871,19 @@ export namespace m$ {
         public remove(selector?: string): mQuery {
             let elems = m$();
             this.each((_, elem) => {
-                if (matches(elem, selector)) {
-                    if (elem.remove) {
-                        elem.remove();
-                    } else if (elem['removeNode']) {
-                        elem['removeNode']();
-                    } else {
-                        elem.outerHTML = '';
-                    }
+                if (!matches(elem, selector)) {
+                    elems.push(elem);
                     return;
                 }
-                elems.push(elem);
+
+                // Remove element
+                if (elem.remove) {
+                    elem.remove();
+                } else if (elem['removeNode']) {
+                    elem['removeNode']();
+                } else {
+                    elem.outerHTML = '';
+                }
             });
             return setContext(elems, this);
         }
@@ -893,7 +892,7 @@ export namespace m$ {
          * Remove all child nodes of the set of matched elements from the DOM.
          */
         public empty(): this {
-            return this.each((_, elem) => {emptyElement(elem)});
+            return this.each((_, elem) => { emptyElement(elem) });
         }
 
         /**
@@ -1354,8 +1353,6 @@ export namespace m$ {
         return json(data, true);
     }
 
-    /* *** ============================ mQuery ============================ *** */
-
     /**
      * Perform an asynchronous HTTP (Ajax) request.
      * @param url A string containing the URL to which the request is sent.
@@ -1523,6 +1520,9 @@ export namespace m$ {
         return ajax(settings);
     }
 
+    /**
+     * Find elements by selector in context and insert in inst.
+     */
     function find(inst: mQuery, context: mQuery, selector: any): mQuery {
         try {
             context.each((_, elem) => {
@@ -1532,15 +1532,19 @@ export namespace m$ {
             return setContext(inst, context);
         } catch (e) {
             throw new Error(`Syntax error, unrecognized expression: ${selector.trim()}`);
-        }
-
-        
+        }        
     }
 
+    /**
+     * Return if text is HTML code or not.
+     */
     function isHTML(text: string): boolean {
         return text.indexOf('<') !== -1;
     }
 
+    /**
+     * Set context (prevObject) and return inst.
+     */
     function setContext(inst, context): mQuery {
         inst.prevObject = context;
         return inst;
@@ -1643,7 +1647,7 @@ export namespace m$.Promise {
         let fnReturn;
         fns.forEach((fn) => {
             fnReturn = fn.apply(context, args);
-            fnReturn !== undefined && (args = fnReturn);
+            fnReturn !== void 0 && (args = fnReturn);
         })
     }
 
@@ -1702,7 +1706,7 @@ export namespace m$.Promise {
         }
 
         public done(callback: (...args) => void): Deferred {
-            if (!callback) {return this; }
+            if (!callback) { return this }
             if (this.state() === State.Resolved) {
                 callback.apply(this.pipeline.context, this.pipeline.args);
             }
@@ -1711,7 +1715,7 @@ export namespace m$.Promise {
         }
 
         public fail(callback: (...args) => void): Deferred {
-            if (!callback) {return this; }
+            if (!callback) { return this }
             if (this.state() === State.Rejected) {
                 callback.apply(this.pipeline.context, this.pipeline.args);
             }
@@ -1719,7 +1723,7 @@ export namespace m$.Promise {
             return this;
         }
 
-        public then(successFilter: (...args) => any, errorFilter?: (...args: any[]) => any): Deferred {
+        public then(successFilter: (...args) => any, errorFilter?: (...args) => any): Deferred {
             return this.done(successFilter).fail(errorFilter);
         }
 
