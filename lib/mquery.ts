@@ -181,11 +181,11 @@ export namespace m$ {
          * Specify a function to execute when the DOM is fully loaded.
          * @param handler A function to execute after the DOM is ready.
          */
-        public ready(handler: EventListener): this {
+        public ready(handler: Function): this {
             if (DOC.readyState !== 'loading') {
-                handler(void 0);
+                handler(m$);
             } else {
-                DOC.addEventListener('DOMContentLoaded', handler);
+                DOC.addEventListener('DOMContentLoaded', () => { handler(m$) });
             }
             return this;
         }
@@ -1395,11 +1395,10 @@ export namespace m$ {
 
             // Deferred => resolve
             resolve = (data) => {
-                let status = request.statusText.replace(/^[\d*\s]/g, '');
                 if (isSet(settings.dataFilter)) {
                     data = settings.dataFilter(data, request.getResponseHeader('Content-Type'));
                 }
-                deferred.resolveWith(context, json(data, true), status, request);
+                deferred.resolveWith(context, json(data, true), 'success', request);
             },
 
             // Deferred => reject
@@ -1411,8 +1410,8 @@ export namespace m$ {
         // Set ajax default callbacks (success, error and complete)
         deferred.then(settings.success, settings.error);
         if (isSet(settings.complete)) {
-            deferred.done((_d, _s, request) => {
-                settings.complete.apply(this, [request, 'success']);
+            deferred.done((_d, status, request) => {
+                settings.complete.apply(this, [request, status]);
             }).fail((request, textStatus) => {
                 settings.complete.apply(this, [request, textStatus]);
             });

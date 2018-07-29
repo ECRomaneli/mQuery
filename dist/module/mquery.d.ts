@@ -86,7 +86,7 @@ export declare namespace m$ {
          * Specify a function to execute when the DOM is fully loaded.
          * @param handler A function to execute after the DOM is ready.
          */
-        ready(handler: EventListener): this;
+        ready(handler: Function): this;
         /**
          * Iterate over a mQuery object, executing a function for each matched element.
          * @param handler A function to execute for each matched element.
@@ -382,8 +382,11 @@ export declare namespace m$ {
          * @param index A zero-based integer indicating which element to retrieve.
          */
         get(index?: number): HTMLElement[] | HTMLElement;
-        width(value?: any): mQuery | number;
-        height(value?: any): mQuery | number;
+        width(): number;
+        height(): number;
+        load(url: string): this;
+        load(url: string, complete: AJAXSuccess): this;
+        load(url: string, data: any, complete: AJAXSuccess): this;
         /**
          * Merge the contents of an object onto the mQuery prototype to provide new mQuery instance methods.
          * @param obj An object to merge onto the jQuery prototype.
@@ -555,7 +558,7 @@ export declare namespace m$ {
      * @param beforeStart A function that is called just before the constructor returns.
      */
     function Deferred(beforeStart?: Function): Deferred;
-    const ready: (handler: EventListener) => mQuery;
+    const ready: (handler: Function) => mQuery;
 }
 export declare namespace m$.Promise {
     enum State {

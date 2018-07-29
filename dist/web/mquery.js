@@ -112,10 +112,10 @@ var mQuery = m$;
          */
         mQuery.prototype.ready = function (handler) {
             if (DOC.readyState !== 'loading') {
-                handler(void 0);
+                handler(m$);
             }
             else {
-                DOC.addEventListener('DOMContentLoaded', handler);
+                DOC.addEventListener('DOMContentLoaded', function () { handler(m$); });
             }
             return this;
         };
@@ -440,8 +440,8 @@ var mQuery = m$;
             var prev = m$();
             this.each(function (_, elem) {
                 var prevElem = elem.previousElementSibling;
-                if (matches(prevElem, selector)) {
-                    prev.push(prevElem);
+                if (!matches(prevElem, selector)) {
+                    return;
                 }
                 prev.push(prevElem);
             });
@@ -455,9 +455,10 @@ var mQuery = m$;
             var next = m$();
             this.each(function (_, elem) {
                 var nextElem = elem.nextElementSibling;
-                if (matches(nextElem, selector)) {
-                    next.push(nextElem);
+                if (!matches(nextElem, selector)) {
+                    return;
                 }
+                next.push(nextElem);
             });
             return setContext(next, this);
         };
@@ -533,8 +534,8 @@ var mQuery = m$;
          */
         mQuery.prototype.addClass = function (className) {
             return this.each(function (_, elem) {
-                className.split(' ').forEach(function (addClass) {
-                    elem.classList.add(addClass);
+                className.split(' ').forEach(function (name) {
+                    elem.classList.add(name);
                 });
             });
         };
@@ -544,8 +545,8 @@ var mQuery = m$;
          */
         mQuery.prototype.removeClass = function (className) {
             return this.each(function (_, elem) {
-                className.split(' ').forEach(function (rmClass) {
-                    elem.classList.remove(rmClass);
+                className.split(' ').forEach(function (name) {
+                    elem.classList.remove(name);
                 });
             });
         };
@@ -570,19 +571,20 @@ var mQuery = m$;
         mQuery.prototype.remove = function (selector) {
             var elems = m$();
             this.each(function (_, elem) {
-                if (matches(elem, selector)) {
-                    if (elem.remove) {
-                        elem.remove();
-                    }
-                    else if (elem['removeNode']) {
-                        elem['removeNode']();
-                    }
-                    else {
-                        elem.outerHTML = '';
-                    }
+                if (!matches(elem, selector)) {
+                    elems.push(elem);
                     return;
                 }
-                elems.push(elem);
+                // Remove element
+                if (elem.remove) {
+                    elem.remove();
+                }
+                else if (elem['removeNode']) {
+                    elem['removeNode']();
+                }
+                else {
+                    elem.outerHTML = '';
+                }
             });
             return setContext(elems, this);
         };
@@ -610,13 +612,37 @@ var mQuery = m$;
             if (index < 0) {
                 index = this.length + index;
             }
-            return index >= 0 && index < this.length ? this[index] : void 0;
+            return index < this.length ? this[index] : void 0;
         };
         mQuery.prototype.width = function (value) {
             return size(this, 'Width', value);
         };
         mQuery.prototype.height = function (value) {
             return size(this, 'Height', value);
+        };
+        mQuery.prototype.load = function (url, dataOrComplete, complete) {
+            var _this = this;
+            // If instance is empty, just return
+            if (isEmpty(this)) {
+                return this;
+            }
+            // Get parameters
+            var data = dataOrComplete;
+            if (!isSet(complete)) {
+                complete = dataOrComplete;
+                data = void 0;
+            }
+            // Get selector with the url (if exists)
+            var matches = url.trim().match(/^([^\s]+)\s?(.*)$/), selector = matches[2];
+            url = matches[1];
+            // Request url with data
+            m$.get(url, data, function (data) {
+                if (selector) {
+                    data = m$(data).filter(selector);
+                }
+                _this.empty().append(data);
+            }).allways(complete);
+            return this;
         };
         /**
          * Merge the contents of an object onto the mQuery prototype to provide new mQuery instance methods.
@@ -1043,11 +1069,10 @@ var mQuery = m$;
         context = settings.context || settings, 
         // Deferred => resolve
         resolve = function (data) {
-            var status = request.statusText.replace(/^[\d*\s]/g, '');
             if (isSet(settings.dataFilter)) {
                 data = settings.dataFilter(data, request.getResponseHeader('Content-Type'));
             }
-            deferred.resolveWith(context, json(data, true), status, request);
+            deferred.resolveWith(context, json(data, true), 'success', request);
         }, 
         // Deferred => reject
         reject = function (textStatus, _e) {
@@ -1057,8 +1082,8 @@ var mQuery = m$;
         // Set ajax default callbacks (success, error and complete)
         deferred.then(settings.success, settings.error);
         if (isSet(settings.complete)) {
-            deferred.done(function (_d, _s, request) {
-                settings.complete.apply(_this, [request, 'success']);
+            deferred.done(function (_d, status, request) {
+                settings.complete.apply(_this, [request, status]);
             }).fail(function (request, textStatus) {
                 settings.complete.apply(_this, [request, textStatus]);
             });
@@ -1154,6 +1179,9 @@ var mQuery = m$;
         settings.success = success;
         return ajax(settings);
     }
+    /**
+     * Find elements by selector in context and insert in inst.
+     */
     function find(inst, context, selector) {
         try {
             context.each(function (_, elem) {
@@ -1168,9 +1196,15 @@ var mQuery = m$;
             throw new Error("Syntax error, unrecognized expression: " + selector.trim());
         }
     }
+    /**
+     * Return if text is HTML code or not.
+     */
     function isHTML(text) {
         return text.indexOf('<') !== -1;
     }
+    /**
+     * Set context (prevObject) and return inst.
+     */
     function setContext(inst, context) {
         inst.prevObject = context;
         return inst;
@@ -1229,7 +1263,7 @@ var mQuery = m$;
             var fnReturn;
             fns.forEach(function (fn) {
                 fnReturn = fn.apply(context, args);
-                fnReturn !== undefined && (args = fnReturn);
+                fnReturn !== void 0 && (args = fnReturn);
             });
         }
         /**

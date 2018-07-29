@@ -115,10 +115,10 @@ exports.mQuery = m$;
          */
         ready(handler) {
             if (DOC.readyState !== 'loading') {
-                handler(void 0);
+                handler(m$);
             }
             else {
-                DOC.addEventListener('DOMContentLoaded', handler);
+                DOC.addEventListener('DOMContentLoaded', () => { handler(m$); });
             }
             return this;
         }
@@ -438,8 +438,8 @@ exports.mQuery = m$;
             let prev = m$();
             this.each((_, elem) => {
                 let prevElem = elem.previousElementSibling;
-                if (matches(prevElem, selector)) {
-                    prev.push(prevElem);
+                if (!matches(prevElem, selector)) {
+                    return;
                 }
                 prev.push(prevElem);
             });
@@ -453,9 +453,10 @@ exports.mQuery = m$;
             let next = m$();
             this.each((_, elem) => {
                 let nextElem = elem.nextElementSibling;
-                if (matches(nextElem, selector)) {
-                    next.push(nextElem);
+                if (!matches(nextElem, selector)) {
+                    return;
                 }
+                next.push(nextElem);
             });
             return setContext(next, this);
         }
@@ -522,8 +523,8 @@ exports.mQuery = m$;
          */
         addClass(className) {
             return this.each((_, elem) => {
-                className.split(' ').forEach((addClass) => {
-                    elem.classList.add(addClass);
+                className.split(' ').forEach((name) => {
+                    elem.classList.add(name);
                 });
             });
         }
@@ -533,8 +534,8 @@ exports.mQuery = m$;
          */
         removeClass(className) {
             return this.each((_, elem) => {
-                className.split(' ').forEach((rmClass) => {
-                    elem.classList.remove(rmClass);
+                className.split(' ').forEach((name) => {
+                    elem.classList.remove(name);
                 });
             });
         }
@@ -559,19 +560,20 @@ exports.mQuery = m$;
         remove(selector) {
             let elems = m$();
             this.each((_, elem) => {
-                if (matches(elem, selector)) {
-                    if (elem.remove) {
-                        elem.remove();
-                    }
-                    else if (elem['removeNode']) {
-                        elem['removeNode']();
-                    }
-                    else {
-                        elem.outerHTML = '';
-                    }
+                if (!matches(elem, selector)) {
+                    elems.push(elem);
                     return;
                 }
-                elems.push(elem);
+                // Remove element
+                if (elem.remove) {
+                    elem.remove();
+                }
+                else if (elem['removeNode']) {
+                    elem['removeNode']();
+                }
+                else {
+                    elem.outerHTML = '';
+                }
             });
             return setContext(elems, this);
         }
@@ -599,13 +601,36 @@ exports.mQuery = m$;
             if (index < 0) {
                 index = this.length + index;
             }
-            return index >= 0 && index < this.length ? this[index] : void 0;
+            return index < this.length ? this[index] : void 0;
         }
         width(value) {
             return size(this, 'Width', value);
         }
         height(value) {
             return size(this, 'Height', value);
+        }
+        load(url, dataOrComplete, complete) {
+            // If instance is empty, just return
+            if (isEmpty(this)) {
+                return this;
+            }
+            // Get parameters
+            let data = dataOrComplete;
+            if (!isSet(complete)) {
+                complete = dataOrComplete;
+                data = void 0;
+            }
+            // Get selector with the url (if exists)
+            let matches = url.trim().match(/^([^\s]+)\s?(.*)$/), selector = matches[2];
+            url = matches[1];
+            // Request url with data
+            m$.get(url, data, (data) => {
+                if (selector) {
+                    data = m$(data).filter(selector);
+                }
+                this.empty().append(data);
+            }).allways(complete);
+            return this;
         }
         /**
          * Merge the contents of an object onto the mQuery prototype to provide new mQuery instance methods.
@@ -1021,11 +1046,10 @@ exports.mQuery = m$;
         context = settings.context || settings, 
         // Deferred => resolve
         resolve = (data) => {
-            let status = request.statusText.replace(/^[\d*\s]/g, '');
             if (isSet(settings.dataFilter)) {
                 data = settings.dataFilter(data, request.getResponseHeader('Content-Type'));
             }
-            deferred.resolveWith(context, json(data, true), status, request);
+            deferred.resolveWith(context, json(data, true), 'success', request);
         }, 
         // Deferred => reject
         reject = (textStatus, _e) => {
@@ -1035,8 +1059,8 @@ exports.mQuery = m$;
         // Set ajax default callbacks (success, error and complete)
         deferred.then(settings.success, settings.error);
         if (isSet(settings.complete)) {
-            deferred.done((_d, _s, request) => {
-                settings.complete.apply(this, [request, 'success']);
+            deferred.done((_d, status, request) => {
+                settings.complete.apply(this, [request, status]);
             }).fail((request, textStatus) => {
                 settings.complete.apply(this, [request, textStatus]);
             });
@@ -1132,6 +1156,9 @@ exports.mQuery = m$;
         settings.success = success;
         return ajax(settings);
     }
+    /**
+     * Find elements by selector in context and insert in inst.
+     */
     function find(inst, context, selector) {
         try {
             context.each((_, elem) => {
@@ -1146,9 +1173,15 @@ exports.mQuery = m$;
             throw new Error(`Syntax error, unrecognized expression: ${selector.trim()}`);
         }
     }
+    /**
+     * Return if text is HTML code or not.
+     */
     function isHTML(text) {
         return text.indexOf('<') !== -1;
     }
+    /**
+     * Set context (prevObject) and return inst.
+     */
     function setContext(inst, context) {
         inst.prevObject = context;
         return inst;
@@ -1205,7 +1238,7 @@ exports.mQuery = m$;
             let fnReturn;
             fns.forEach((fn) => {
                 fnReturn = fn.apply(context, args);
-                fnReturn !== undefined && (args = fnReturn);
+                fnReturn !== void 0 && (args = fnReturn);
             });
         }
         /**
