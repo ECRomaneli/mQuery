@@ -909,17 +909,47 @@ export namespace m$ {
          * @param index A zero-based integer indicating which element to retrieve.
          */
         public get(index?: number): HTMLElement[] | HTMLElement {
-            if (!isSet(index)) {return makeArray(this); }
-            if (index < 0) {index = this.length + index; }
-            return index >= 0 && index < this.length ? this[index] : void 0;
+            if (!isSet(index)) { return makeArray(this) }
+            if (index < 0) { index = this.length + index }
+            return index < this.length ? this[index] : void 0;
         }
 
+        public width(): number;
         public width(value?): mQuery | number {
             return size(this, 'Width', value);
         }
 
+        public height(): number;
         public height(value?): mQuery | number {
             return size(this, 'Height', value);
+        }
+
+
+        public load(url: string): this;
+        public load(url: string, complete: AJAXSuccess): this;
+        public load(url: string, data: any, complete: AJAXSuccess): this;
+        public load(url, dataOrComplete?, complete?): this {
+            // If instance is empty, just return
+            if (isEmpty(this)) { return this }
+
+            // Get parameters
+            let data = dataOrComplete;
+            if (!isSet(complete)) {
+                complete = dataOrComplete;
+                data = void 0;
+            }
+
+            // Get selector with the url (if exists)
+            let matches = url.trim().match(/^([^\s]+)\s?(.*)$/),
+                selector = matches[2];
+            url = matches[1];
+
+            // Request url with data
+            m$.get(url, data, (data) => {
+                if (selector) { data = m$(data).filter(selector) }
+                this.empty().append(data);
+            }).allways(complete);
+            return this;
         }
 
         /**
@@ -927,7 +957,7 @@ export namespace m$ {
          * @param obj An object to merge onto the jQuery prototype.
          */
         public extend(obj: Object): void {
-            each(obj, (key, value) => {fn[key] = value});
+            each(obj, (key, value) => { fn[key] = value });
         }
     }
 
