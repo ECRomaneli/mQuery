@@ -178,6 +178,15 @@ Actually, all functions listed behind, are jQuery compatible. Then, all mQuery c
 
     // http://api.jquery.com/append/
     .append(...elem: mQuery | NodeList | HTMLElement): this
+
+    // http://api.jquery.com/width/
+    .width(value?: string | number): this | number
+
+    // http://api.jquery.com/height/
+    .height(value?: string | number): this | number
+
+    // http://api.jquery.com/load/
+    .load(url: string, data?: Object | string, complete?: Function): this | number
 ```
 
 ### AJAX
@@ -198,6 +207,15 @@ Actually, all functions listed behind, are jQuery compatible. Then, all mQuery c
 ```typescript
     // http://api.jquery.com/jQuery.Deferred/
     m$.Deferred(beforeStart?: Function): Deferred
+```
+
+### Shorthand Methods
+```typescript
+    // To use shorthand event methods, declare it using:
+    m$.shorthands(events: string[])
+
+    // Example:
+    m$.shorthands(['click', 'mouseenter', 'focus'])
 ```
 
 ### Utils
@@ -249,14 +267,15 @@ Actually, all functions listed behind, are jQuery compatible. Then, all mQuery c
     m$.cookie(key: string, value?: any, options: {timeout: seconds, path: string}): any
 ```
 
-### On Working...
-- [width([size])](http://api.jquery.com/width/)
-- [height([size])](http://api.jquery.com/height/)
-
 ## Author
 
 - Created and maintained by [Emerson C. Romaneli](https://github.com/ECRomaneli) (@ECRomaneli).
 
 ## License
 
+mQuery:
 [MIT License](https://github.com/ECRomaneli/mQuery/blob/master/LICENSE.md)
+
+jQuery:
+[License Page](https://jquery.org/license/)
+

@@ -23,14 +23,14 @@ export const mQuery = m$;
 export namespace m$ {
     // Types
     export type Class = mQuery;
-    export type Deferred = m$.Promise.Deferred;
+    export type Deferred = Promise.Deferred;
     export type ForEachIterator<T> = (keyOrIndex: any, value: T) => boolean | void;
     export type EachIterator = ForEachIterator<HTMLElement>;
     export type ArrayLikeObject = PlainObject | ArrayLike<any>;
-    export type PlainObject = {[key: string]: any, length?: number};
+    export type PlainObject = { [key: string]: any, length?: number };
     export type AJAXSuccess = (data?: any, textStatus?: string, XHR?: XMLHttpRequest) => void;
-    export type AJAXDetails = (XHR?: XMLHttpRequest, settingsOrStatus?: PlainObject | string, errorThrown?: string) => void;
-    export type AJAXSettings = {
+    export type AJAXDetails = (XHR?: XMLHttpRequest, optionsOrStatus?: PlainObject | string, errorThrown?: string) => void;
+    export type AJAXOptions = {
         method?: string,
         beforeSend?: AJAXDetails,
         complete?: AJAXDetails,
@@ -68,7 +68,7 @@ export namespace m$ {
     // init constants
     const DOC = document;
     const WIN = window || DOC.defaultView;
-    const AJAX_CONFIG = {
+    var AJAX_CONFIG = {
         contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
         method: HTTP.GET,
         statusCode: {},
@@ -87,6 +87,8 @@ export namespace m$ {
      */
     export class mQuery implements ArrayLike<HTMLElement> {
         [index: number]: HTMLElement;
+        [key: string]: any;
+
         public prevObject?: mQuery;
         public length: number = 0;
 
@@ -109,7 +111,7 @@ export namespace m$ {
             }
 
             // If selector is function
-            if (typeOf(selector, 'function')) {return ROOT.ready(selector); }
+            if (typeOf(selector, 'function')) { return ROOT.ready(selector) }
 
             // If selector is NOT string
             if (!typeOf(selector, 'string')) {
@@ -181,11 +183,11 @@ export namespace m$ {
          * Specify a function to execute when the DOM is fully loaded.
          * @param handler A function to execute after the DOM is ready.
          */
-        public ready(handler: EventListener): this {
+        public ready(handler: Function): this {
             if (DOC.readyState !== 'loading') {
-                handler(void 0);
+                handler(m$);
             } else {
-                DOC.addEventListener('DOMContentLoaded', handler);
+                DOC.addEventListener('DOMContentLoaded', () => { handler(m$) });
             }
             return this;
         }
@@ -288,7 +290,7 @@ export namespace m$ {
             }
 
             $elems.each((_, elem) => {
-                events.split(' ').forEach((event) => {elem.removeEventListener(event, handler, true)});
+                events.split(' ').forEach((event) => { elem.removeEventListener(event, handler, true) });
             });
 
             return this;
@@ -307,7 +309,7 @@ export namespace m$ {
 
         public is(filter: any): boolean {
             let isStr = typeOf(filter, 'string');
-            return some(this, (i, elem) => 
+            return some(this, (i, elem) =>
                 isStr ? matches(elem, filter) : filter.call(elem, i, elem)
             );
         }
@@ -351,8 +353,8 @@ export namespace m$ {
         public not(selector: string): mQuery;
 
         public not(filter): mQuery {
-            return this.filter(typeOf(filter, 'string') ? 
-                (_, elem) => !matches(elem, filter) : 
+            return this.filter(typeOf(filter, 'string') ?
+                (_, elem) => !matches(elem, filter) :
                 (i, elem) => !filter.call(elem, i, elem)
             );
         }
@@ -472,7 +474,7 @@ export namespace m$ {
             // attr(attrName: string, value: string | null): this;
             if (isSet(value)) {
                 return this.each((_, elem) => {
-                    if (value === null) { this.removeAttr(<string>attrs); }
+                    if (value === null) { this.removeAttr(<string>attrs) }
                     elem.setAttribute(<string>attrs, value);
                 });
             }
@@ -539,7 +541,7 @@ export namespace m$ {
             }
 
             // prop(propName: string): any;
-            if (isEmpty(this)) {return void 0; }
+            if (isEmpty(this)) { return void 0 }
             if (isSet(this[0][props])) {
                 return this[0][props];
             }
@@ -581,16 +583,16 @@ export namespace m$ {
 
         public css(styleName, value?): this | string {
             if (!typeOf(styleName, 'string')) {
-                each(styleName, (key, value) => {this.css(key, value)});
+                each(styleName, (key, value) => { this.css(key, value) });
                 return this;
             }
 
             if (isSet(value)) {
-                if (typeOf(value, 'number')) {value += 'px'; }
-                return this.each((_, elem) => {elem.style[styleName] = value});
+                if (typeOf(value, 'number')) { value += 'px' }
+                return this.each((_, elem) => { elem.style[styleName] = value });
             }
 
-            if (isEmpty(this)) {return void 0; }
+            if (isEmpty(this)) { return void 0 }
 
             let elem: any = this[0],
                 view = elem.ownerDocument.defaultView;
@@ -657,7 +659,7 @@ export namespace m$ {
          */
         public children(selector?: string): mQuery {
             let elems = m$();
-            this.each((_, elem) => {elems.concat(elem.children)});
+            this.each((_, elem) => { elems.concat(elem.children) });
 
             elems.prevObject = this;
             return selector ? elems.filter(selector) : elems;
@@ -717,7 +719,7 @@ export namespace m$ {
                 let nextElem = elem.nextElementSibling;
                 if (!matches(nextElem, selector)) { return }
                 next.push(nextElem);
-            }); 
+            });
             return setContext(next, this);
         }
 
@@ -729,8 +731,8 @@ export namespace m$ {
             let rawChildren = contents.reverse();
             return this.each((_, parent) => {
                 setChildren(rawChildren,
-                    (child) => {parent.insertBefore(child, parent.firstChild)},
-                    (str) => {parent.insertAdjacentHTML('afterbegin', str)});
+                    (child) => { parent.insertBefore(child, parent.firstChild) },
+                    (str) => { parent.insertAdjacentHTML('afterbegin', str) });
             });
         }
 
@@ -746,8 +748,8 @@ export namespace m$ {
         public append(...contents): this {
             return this.each((_, parent) => {
                 setChildren(contents,
-                    (child) => {parent.appendChild(child)},
-                    (str) => {parent.insertAdjacentHTML('beforeend', str)});
+                    (child) => { parent.appendChild(child) },
+                    (str) => { parent.insertAdjacentHTML('beforeend', str) });
             });
         }
 
@@ -780,7 +782,7 @@ export namespace m$ {
         public data(key: string | number, value: any): this;
 
         public data(keyOrObj?: any, value?: any): this | any {
-            if (isEmpty(this)) {return void 0; }
+            if (isEmpty(this)) { return void 0 }
 
             // data(): any;
             if (!isSet(keyOrObj)) {
@@ -798,7 +800,7 @@ export namespace m$ {
             if (typeOf(keyOrObj, ['string', 'number'])) {
                 return dataRef(this[0], keyOrObj);
             }
-            
+
             // data(obj: Object): this;
             each(keyOrObj, (key, value) => {
                 this.data(key, value);
@@ -913,41 +915,93 @@ export namespace m$ {
             return index < this.length ? this[index] : void 0;
         }
 
+        /**
+         * Get the current computed width for the first element in the set of matched elements.
+         */
         public width(): number;
-        public width(value?): mQuery | number {
-            return size(this, 'Width', value);
+        /**
+         * Set the CSS width of each element in the set of matched elements.
+         * @param valueFn A function returning the width to set. Receives the index and the old width. "this" refers to the current element in the set.
+         */
+        
+        public width(valueFn: (index?: number, width?: number) => string | number): mQuery;
+        /**
+         * Set the CSS width of each element in the set of matched elements.
+         * @param value An integer representing the number of pixels, or an integer along with an optional unit of measure appended (as a string).
+         */
+        public width(value: string | number): mQuery;
+        public width(value?: any): mQuery | number {
+            if (!typeOf(value, 'function')) {
+                return size(this, 'Width', value);
+            }
+
+            return this.each((i, elem) => {
+                let $elem = m$(elem);
+                $elem.width(value.call(elem, i, $elem.width()));
+            });
         }
 
+        /**
+         * Get the current computed height for the first element in the set of matched elements.
+         */
         public height(): number;
-        public height(value?): mQuery | number {
-            return size(this, 'Height', value);
+        /**
+         * Set the CSS height of every matched element.
+         * @param valueFn A function returning the height to set. Receives the index and the old height. "this" refers to the current element in the set.
+         */
+        
+        public height(valueFn: (index?: number, width?: number) => string | number): mQuery;
+        /**
+         * Set the CSS height of every matched element.
+         * @param value An integer representing the number of pixels, or an integer with an optional unit of measure appended (as a string).
+         */
+        public height(value: string | number): mQuery;
+        public height(value?: any): mQuery | number {
+            if (!typeOf(value, 'function')) {
+                return size(this, 'Height', value);
+            }
+
+            return this.each((i, elem) => {
+                let $elem = m$(elem);
+                $elem.height(value.call(elem, i, $elem.height()));
+            });
         }
 
 
-        public load(url: string): this;
-        public load(url: string, complete: AJAXSuccess): this;
-        public load(url: string, data: any, complete: AJAXSuccess): this;
-        public load(url, dataOrComplete?, complete?): this {
+        /**
+         * Load data from the server and place the returned HTML into the matched element.
+         * @param url A string containing the URL to which the request is sent.
+         * @param data A plain object or string that is sent to the server with the request.
+         * @param complete A callback function that is executed when the request completes.
+         */
+        public load(url, data?: AJAXSuccess | any, complete?: AJAXSuccess): this {
             // If instance is empty, just return
             if (isEmpty(this)) { return this }
 
             // Get parameters
-            let data = dataOrComplete;
             if (!isSet(complete)) {
-                complete = dataOrComplete;
+                complete = data;
                 data = void 0;
             }
 
             // Get selector with the url (if exists)
             let matches = url.trim().match(/^([^\s]+)\s?(.*)$/),
                 selector = matches[2];
-            url = matches[1];
 
-            // Request url with data
-            m$.get(url, data, (data) => {
-                if (selector) { data = m$(data).filter(selector) }
-                this.empty().append(data);
-            }).allways(complete);
+            m$.ajax({
+                url: matches[1],
+                data: data,
+                success: (res) => {
+                    if (selector) { res = m$(res).filter(selector) }
+                    this.empty().append(res);
+                },
+                complete: (req, s) => {
+                    this.each((_, elem) => {
+                        complete.call(elem, req.responseText, s, req);
+                    });
+                }
+            });
+
             return this;
         }
 
@@ -964,6 +1018,9 @@ export namespace m$ {
     export const Class = mQuery;
     export const fn = mQuery.prototype;
     export const prototype = fn;
+
+    // JUST FOR COMPATIBILITY
+    fn.jquery = '3.3.1';
 
     (<any>fn).splice = Array.prototype.splice;
 
@@ -982,7 +1039,7 @@ export namespace m$ {
      * @param param Parameter to be verified.
      */
     export function isFalse(param: any): boolean {
-        if (isArrayLike(param)) {return !param.length; }
+        if (isArrayLike(param)) { return !param.length }
         return !param || (param == false && param !== '0');
     }
 
@@ -994,7 +1051,7 @@ export namespace m$ {
     }
 
     function emptyElement(elem: Node): void {
-        while (elem.lastChild) {elem.removeChild(elem.lastChild)}
+        while (elem.lastChild) { elem.removeChild(elem.lastChild) }
     }
 
     export function instanceOf(obj: any, ...classes): boolean {
@@ -1008,15 +1065,15 @@ export namespace m$ {
         let matched = (typeof obj).toLowerCase(),
             some = (type) => {
                 if (matched === 'object') {
-                    if (type === 'document')    {return obj instanceof Document; }
-                    if (type === 'element')     {return obj instanceof Element; }
-                    if (type === 'mquery')      {return obj instanceof mQuery; }
-                    if (type === 'window')      {return obj instanceof Window; }
+                    if (type === 'document')    { return obj instanceof Document }
+                    if (type === 'element')     { return obj instanceof Element }
+                    if (type === 'mquery')      { return obj instanceof mQuery }
+                    if (type === 'window')      { return obj instanceof Window }
                 }
                 return matched === type;
             };
 
-        if (Array.isArray(types)) {return types.some(some); }
+        if (Array.isArray(types)) { return types.some(some) }
         return some(types);
     }
 
@@ -1024,7 +1081,7 @@ export namespace m$ {
      * Transform snake case string to camel case.
      */
     function snakeToCamelCase(s: string | number): string {
-        return (s+'').replace(/(\-\w)/g, (m) => m[1].toUpperCase());
+        return (s + '').replace(/(\-\w)/g, (m) => m[1].toUpperCase());
     }
 
     /**
@@ -1032,11 +1089,11 @@ export namespace m$ {
      */
     function size(inst: mQuery, dim: string, value?): mQuery | number {
         if (isSet(value)) {
-            if (isEmpty(inst) || !typeOf(inst[0], 'element')) {return inst; }
+            if (isEmpty(inst) || !typeOf(inst[0], 'element')) { return inst }
             return inst.css(dim.toLowerCase(), value);
         }
 
-        if (isEmpty(inst)) {return void 0; }
+        if (isEmpty(inst)) { return void 0 }
 
         const obj: any = inst[0];
         if (typeOf(obj, 'document')) {
@@ -1063,7 +1120,7 @@ export namespace m$ {
     */
     function some(arr: ArrayLike<any>, it: ForEachIterator<any>): boolean {
         for (let i = arr.length - 1; i >= 0; --i) {
-            if (it(i, arr[i])) {return true; }
+            if (it(i, arr[i])) { return true }
         }
         return false;
     }
@@ -1072,8 +1129,8 @@ export namespace m$ {
      * Verify if element matches selector.
      */
     function matches(elem: Element, selector: string): boolean {
-        if (!isSet(selector)) {return true; }
-        if (elem.matches) {return elem.matches(selector); }
+        if (!isSet(selector)) { return true }
+        if (elem.matches) { return elem.matches(selector) }
         emptyElement(AUX_ELEM);
         AUX_ELEM.appendChild(elem);
         return !!AUX_ELEM.querySelector(selector);
@@ -1090,15 +1147,15 @@ export namespace m$ {
      * Generate list of elements to concat.
      */
     function createArr(selector: any): HTMLElement[] | mQuery {
-        if (isArrayLike(selector)) {return selector; }
+        if (isArrayLike(selector)) { return selector }
         return [selector];
     }
 
     function createContext(selector: any): mQuery {
-        if (!selector) {return ROOT; }
+        if (!selector) { return ROOT }
 
         // If mQuery was passed, then return this mQuery
-        if (selector instanceof mQuery) {return selector; }
+        if (selector instanceof mQuery) { return selector }
 
         // Create new instance
         return m$(selector, selector.prevObject || ROOT);
@@ -1123,6 +1180,7 @@ export namespace m$ {
             if (!hasParent(child)) {
                 return elemInsertFn(child);
             }
+
             return stringInsertFn(child.outerHTML);
         });
     }
@@ -1161,11 +1219,11 @@ export namespace m$ {
      * @param obj Object to be verified.
      */
     export function isArrayLike(obj): boolean {
-        if (Array.isArray(obj)) {return true; }
-        if (!obj || typeOf(obj, ['function', 'string', 'window'])) {return false; }
+        if (Array.isArray(obj)) { return true }
+        if (!obj || typeOf(obj, ['function', 'string', 'window'])) { return false }
 
         let length = obj.length;
-        return typeof length === "number" && (length === 0 || (length > 0  && (length - 1) in obj));
+        return typeof length === "number" && (length === 0 || (length > 0 && (length - 1) in obj));
     }
 
     /**
@@ -1174,7 +1232,7 @@ export namespace m$ {
      * @param second The second array-like object to merge into the first, unaltered.
      */
     export function merge(first: any, second: any): ArrayLike<any> {
-        each(second, (_, elem) => {first.push(elem)});
+        each(second, (_, elem) => { first.push(elem) });
         return first;
     }
 
@@ -1204,11 +1262,11 @@ export namespace m$ {
         if (isArrayLike(arr)) {
             let length = arr.length;
             for (let i = 0; i < length; i++) {
-                if (it.call(arr[i], i, arr[i]) === false) {break; }
+                if (it.call(arr[i], i, arr[i]) === false) { break }
             }
         } else {
             for (let key in arr) {
-                if (it.call(arr[key], key, arr[key]) === false) {break; }
+                if (it.call(arr[key], key, arr[key]) === false) { break }
             }
         }
         return arr;
@@ -1223,7 +1281,7 @@ export namespace m$ {
      */
     export function grep(arr: ArrayLike<any>, filter: (value, index) => boolean, invert = false, newArr: any = []): ArrayLike<any> {
         each(arr, (i, value) => {
-            if (filter(value, i) == invert) {return; }
+            if (filter(value, i) == invert) { return }
             newArr.push(value);
         });
         return newArr;
@@ -1236,7 +1294,7 @@ export namespace m$ {
      * @param newArr [ONLY MQUERY] List to add elements.
      */
     export function map(arr: ArrayLikeObject, beforePush: (value, index) => any, newArr: any = []): ArrayLike<any> {
-        each(arr, (i, value) => {newArr.push(beforePush.call(value, value, i))});
+        each(arr, (i, value) => { newArr.push(beforePush.call(value, value, i)) });
         return newArr;
     }
 
@@ -1245,7 +1303,7 @@ export namespace m$ {
      * @param obj Object to get the internal JavaScript [[Class]] of.
      */
     export function type(obj: any): string {
-        if (Array.isArray(obj)) {return 'array'; }
+        if (Array.isArray(obj)) { return 'array' }
         return (typeof obj).toLowerCase();
     }
 
@@ -1254,8 +1312,8 @@ export namespace m$ {
      * @param obj The object that will be checked to see if it's empty.
      */
     export function isEmptyObject(obj): boolean {
-		for (let _ in obj) {return false; }
-		return true;
+        for (let _ in obj) { return false }
+        return true;
     }
 
     /**
@@ -1292,7 +1350,7 @@ export namespace m$ {
             }
             return JSON.stringify(objOrText);
         } catch (e) {
-            if (!ignoreErr) {throw e; }
+            if (!ignoreErr) { throw e }
             return objOrText;
         }
     }
@@ -1314,7 +1372,7 @@ export namespace m$ {
      * @param value Cookie value.
      * @param options {timeout?, path?} Set timeout in seconds and path of your new cookie.
      */
-    export function cookie(key: string, value: any, options: {timeout?: number, path?: string}): void;
+    export function cookie(key: string, value: any, options: { timeout?: number, path?: string }): void;
 
     export function cookie(key: string, value?: any, options: any = {}): any {
         // Set cookie
@@ -1342,7 +1400,7 @@ export namespace m$ {
         // Find cookie with 'name'
         each(rawCookies, (_, cookie) => {
             cookie = cookie.trim();
-            if (cookie.indexOf(name) !== 0) {return true; }
+            if (cookie.indexOf(name) !== 0) { return true }
 
             // When find name, get data and stop each
             data = cookie.substring(name.length, cookie.length);
@@ -1354,98 +1412,104 @@ export namespace m$ {
     }
 
     /**
+     * Set default values for future Ajax requests. Its use is not recommended.
+     * @param options A set of key/value pairs that configure the default Ajax request. All options are optional.
+     */
+    export function ajaxSetup(options: AJAXOptions): PlainObject {
+        each(options, (key, value) => { AJAX_CONFIG[key] = value });
+        return AJAX_CONFIG;
+    }
+
+    /**
      * Perform an asynchronous HTTP (Ajax) request.
      * @param url A string containing the URL to which the request is sent.
      */
     export function ajax(url: string): Deferred;
     /**
-     * @param settings AJAX options.
+     * @param options AJAX options.
      */
-    export function ajax(settings: AJAXSettings): Deferred;
+    export function ajax(options: AJAXOptions): Deferred;
     /**
      * @param url A string containing the URL to which the request is sent.
-     * @param settings AJAX options.
+     * @param options AJAX options.
      */
-    export function ajax(url: string, settings: AJAXSettings): Deferred;
+    export function ajax(url: string, options: AJAXOptions): Deferred;
 
-    export function ajax(url: string | AJAXSettings, settings: AJAXSettings = {}): Deferred {
-        let deferred = m$.Deferred(), request;
+    export function ajax(url: string | AJAXOptions, options: AJAXOptions = {}): Deferred {
+        let dfrr = m$.Deferred(), request;
 
         if (typeOf(url, 'string')) {
-            settings.url = <string>url;
+            options.url = <string>url;
         } else {
-            settings = <AJAXSettings>url;
+            options = <AJAXOptions>url;
         }
 
         each(AJAX_CONFIG, (key, value) => {
-            if (isSet(settings[key])) {return; }
-            settings[key] = value;
+            if (isSet(options[key])) { return }
+            options[key] = value;
         });
 
         // Create XMLHtmlRequest
-        request = settings.xhr();
+        request = options.xhr();
 
         // Call beforeSend
-        settings.beforeSend && settings.beforeSend(request, settings);
+        options.beforeSend && options.beforeSend(request, options);
         // Set Method
-        settings.method = (settings.type || settings.method).toUpperCase();
+        options.method = (options.type || options.method).toUpperCase();
 
         let // Set context of callbacks
-            context = settings.context || settings,
+            context = options.context || options,
 
             // Deferred => resolve
             resolve = (data) => {
-                let status = request.statusText.replace(/^[\d*\s]/g, '');
-                if (isSet(settings.dataFilter)) {
-                    data = settings.dataFilter(data, request.getResponseHeader('Content-Type'));
+                if (isSet(options.dataFilter)) {
+                    // TODO: If start works with dataType, change second param to dataType
+                    data = options.dataFilter(data, request.getResponseHeader('Content-Type'));
                 }
-                deferred.resolveWith(context, json(data, true), status, request);
+                dfrr.resolveWith(context, json(data, true), 'success', request);
             },
 
             // Deferred => reject
-            reject = (textStatus, _e) => {
+            reject = (textStatus) => {
                 let errorThrown = request.statusText.replace(/^[\d*\s]/g, '');
-                deferred.rejectWith(context, request, textStatus, errorThrown);
+                dfrr.rejectWith(context, request, textStatus, errorThrown);
             };
 
         // Set ajax default callbacks (success, error and complete)
-        deferred.then(settings.success, settings.error);
-        if (isSet(settings.complete)) {
-            deferred.done((_d, _s, request) => {
-                settings.complete.apply(this, [request, 'success']);
-            }).fail((request, textStatus) => {
-                settings.complete.apply(this, [request, textStatus]);
-            });
+        if (isSet(options.complete)) {
+            dfrr.done(function (_d, s, req) { options.complete(req, s) })
+                .fail(function (req, s) { options.complete(req, s) });
         }
+        dfrr.done(options.success).fail(options.error);
 
         // Setting URL Encoded data
-        if (settings.data && settings.method === HTTP.GET) {
-            let separator = settings.url.indexOf('?') >= 0 ? '&' : '?';
-            settings.url += separator + param(settings.data);
+        if (options.data && options.method === HTTP.GET) {
+            let separator = options.url.indexOf('?') >= 0 ? '&' : '?';
+            options.url += separator + param(options.data);
         }
 
         // Open request
-        request.open(settings.method, settings.url, settings.async, settings.username, settings.password);
+        request.open(options.method, options.url, options.async, options.username, options.password);
 
         // Override mime type
-        if (isSet(settings.mimeType)) {
-            request.overrideMimeType(settings.mimeType);
+        if (isSet(options.mimeType)) {
+            request.overrideMimeType(options.mimeType);
         }
 
         // Set headers
         request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        if (isSet(settings.headers)) {
-            each(settings.headers, (header, value) => {
+        if (isSet(options.headers)) {
+            each(options.headers, (header, value) => {
                 request.setRequestHeader(header, value);
             });
         }
-        if (settings.contentType !== false) {
-            request.setRequestHeader('Content-Type', settings.contentType);
+        if (options.contentType !== false) {
+            request.setRequestHeader('Content-Type', options.contentType);
         }
 
-        if (settings.async) {
+        if (options.async) {
             // Set timeout in ms
-            request.timeout = settings.timeout;
+            request.timeout = options.timeout;
         } else {
             console.warn(
                 "[Deprecation] Synchronous XMLHttpRequest on the main thread " +
@@ -1455,24 +1519,27 @@ export namespace m$ {
 
         // Listeners
         request.onload = () => {
+            let statusFn = options.statusCode[request.status];
+            statusFn && statusFn();
+
             if (request.status === 200) {
                 resolve(request.response);
             } else {
-                reject(null, request.statusText);
+                reject('error');
             }
         };
-        request.onerror = () => {reject('error', 'Connection error.')};
-        request.ontimeout = () => {reject('timeout', 'Request timed out.')};
-        request.onabort = () => {reject('abort', 'Request aborted.')};
+        request.onerror = () => { reject('error') };
+        request.ontimeout = () => { reject('timeout') };
+        request.onabort = () => { reject('abort') };
 
         // Proccess data
-        if (settings.method === HTTP.POST || settings.method === HTTP.PUT) {
-            request.send(param(settings.data));
+        if (options.method === HTTP.POST || options.method === HTTP.PUT) {
+            request.send(param(options.data));
         } else {
             request.send();
         }
 
-        return deferred.promise();
+        return dfrr.promise();
     }
 
     /**
@@ -1488,7 +1555,7 @@ export namespace m$ {
             name = (prefix || isArr) ? `${prefix}[${key}]` : key;
 
             // If string or number, set uri
-            uri.push(forceString || typeOf(value, ['string', 'number']) ? 
+            uri.push(forceString || typeOf(value, ['string', 'number']) ?
                 `${e(name)}=${e(value)}` :
                 buildParam(value, name));
         });
@@ -1498,13 +1565,13 @@ export namespace m$ {
     /**
      * Build default requests
      */
-    function requestBuilder(method, urlOrSettings, dataOrSuccess?, success?): Deferred {
-        let settings: AJAXSettings, data;
+    function requestBuilder(method, urlOrOptions, dataOrSuccess?, success?): Deferred {
+        let options: AJAXOptions, data;
 
-        if (typeOf(urlOrSettings, 'string')) {
-            settings = <AJAXSettings>{url: urlOrSettings};
+        if (typeOf(urlOrOptions, 'string')) {
+            options = <AJAXOptions>{ url: urlOrOptions };
         } else {
-            settings = <AJAXSettings>urlOrSettings;
+            options = <AJAXOptions>urlOrOptions;
         }
 
         if (typeOf(dataOrSuccess, 'function')) {
@@ -1513,11 +1580,11 @@ export namespace m$ {
             data = dataOrSuccess;
         }
 
-        settings.method = method;
-        settings.data = data;
-        settings.success = success;
+        options.method = method;
+        options.data = data;
+        options.success = success;
 
-        return ajax(settings);
+        return ajax(options);
     }
 
     /**
@@ -1532,7 +1599,7 @@ export namespace m$ {
             return setContext(inst, context);
         } catch (e) {
             throw new Error(`Syntax error, unrecognized expression: ${selector.trim()}`);
-        }        
+        }
     }
 
     /**
@@ -1565,12 +1632,12 @@ export namespace m$ {
     export function get(url: string, data: any, success: AJAXSuccess): Deferred;
     /**
      * Load data from the server using a HTTP GET request.
-     * @param settings A set of key/value pairs that configure the Ajax request.
+     * @param options A set of key/value pairs that configure the Ajax request.
      */
-    export function get(settings: AJAXSettings): Deferred;
+    export function get(options: AJAXOptions): Deferred;
 
-    export function get(urlOrSettings: AJAXSettings | string, dataOrSuccess?: AJAXSuccess | any, success?: AJAXSuccess): Deferred {
-        return requestBuilder(HTTP.GET, urlOrSettings, dataOrSuccess, success);
+    export function get(urlOrOptions: AJAXOptions | string, dataOrSuccess?: AJAXSuccess | any, success?: AJAXSuccess): Deferred {
+        return requestBuilder(HTTP.GET, urlOrOptions, dataOrSuccess, success);
     }
 
     /**
@@ -1588,12 +1655,12 @@ export namespace m$ {
     export function post(url: string, data: any, success: AJAXSuccess): Deferred;
     /**
      * Load data from the server using a HTTP POST request.
-     * @param settings A set of key/value pairs that configure the Ajax request.
+     * @param options A set of key/value pairs that configure the Ajax request.
      */
-    export function post(settings: AJAXSettings): Deferred;
+    export function post(options: AJAXOptions): Deferred;
 
-    export function post(urlOrSettings: AJAXSettings | string, dataOrSuccess?: AJAXSuccess | any, success?: AJAXSuccess): Deferred {
-        return requestBuilder(HTTP.POST, urlOrSettings, dataOrSuccess, success);
+    export function post(urlOrOptions: AJAXOptions | string, dataOrSuccess?: AJAXSuccess | any, success?: AJAXSuccess): Deferred {
+        return requestBuilder(HTTP.POST, urlOrOptions, dataOrSuccess, success);
     }
 
     export function param(obj: ArrayLikeObject, tradicional = false): string {
@@ -1643,12 +1710,19 @@ export namespace m$.Promise {
         Rejected = 'rejected'
     }
 
-    function call(fns, context = this, args?: any[]) {
-        let fnReturn;
+    function returnArgs(fn: Function): Function {
+        // return fn;
+        return function () {
+            fn.apply(this, arguments);
+            return arguments;
+        }
+    }
+
+    function call(fns, context, args?: any[]): any {
         fns.forEach((fn) => {
-            fnReturn = fn.apply(context, args);
-            fnReturn !== void 0 && (args = fnReturn);
-        })
+            args = fn.apply(context, args) || [void 0];
+        });
+        return args;
     }
 
     /**
@@ -1658,14 +1732,14 @@ export namespace m$.Promise {
         private _state: State;
         private pipeline: Pipeline;
 
-        constructor (beforeStart?: Function) {
+        constructor(beforeStart?: Function) {
             this._state = State.Pending;
-            this.pipeline = {done: [], fail: []};
+            this.pipeline = { done: [], fail: [] };
             beforeStart && beforeStart(this);
         }
 
         private changeState(newState: State, context, args): boolean {
-            if (this._state !== State.Pending) {return false; }
+            if (this._state !== State.Pending) { return false }
             this._state = newState;
             this.pipeline.context = context;
             this.pipeline.args = args;
@@ -1685,14 +1759,14 @@ export namespace m$.Promise {
 
         public resolveWith(context, ...args): this {
             if (this.changeState(State.Resolved, context, args)) {
-                call(this.pipeline.done, context, args);
+                this.pipeline.args = call(this.pipeline.done, context, args);
             }
             return this;
         }
 
         public rejectWith(context, ...args): this {
             if (this.changeState(State.Rejected, context, args)) {
-                call(this.pipeline.fail, context, args);
+                this.pipeline.args = call(this.pipeline.fail, context, args);
             }
             return this;
         }
@@ -1707,28 +1781,48 @@ export namespace m$.Promise {
 
         public done(callback: (...args) => void): Deferred {
             if (!callback) { return this }
+
             if (this.state() === State.Resolved) {
                 callback.apply(this.pipeline.context, this.pipeline.args);
+            } else {
+                this.pipeline.done.push(returnArgs(callback));
             }
-            this.pipeline.done.push(callback);
+
             return this;
         }
 
         public fail(callback: (...args) => void): Deferred {
             if (!callback) { return this }
+
             if (this.state() === State.Rejected) {
                 callback.apply(this.pipeline.context, this.pipeline.args);
+            } else {
+                this.pipeline.fail.push(returnArgs(callback));
             }
-            this.pipeline.fail.push(callback);
+
             return this;
         }
 
         public then(successFilter: (...args) => any, errorFilter?: (...args) => any): Deferred {
-            return this.done(successFilter).fail(errorFilter);
+            let p = this.pipeline;
+
+            if (!successFilter) { return this }
+            if (this.state() === State.Resolved) {
+                successFilter.apply(p.context, p.args);
+            }
+            p.done.push(successFilter);
+
+            if (!errorFilter) { return this }
+            if (this.state() === State.Rejected) {
+                errorFilter.apply(p.context, p.args);
+            }
+            p.fail.push(errorFilter);
+
+            return this;
         }
 
-        public allways(callback: (...args) => void): Deferred {
-            return this.then(callback, callback);
+        public always(callback: (...args) => void): Deferred {
+            return this.done(callback).fail(callback);
         }
     }
 }
