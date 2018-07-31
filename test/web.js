@@ -21,7 +21,7 @@ test('.ready()', () => {
     m$(ready);
 })
 
-m$(() => {
+$(() => { m$(() => {
     test('m$()', () => {
         m$();
         m$('div');
@@ -96,4 +96,31 @@ m$(() => {
     test('.parent()', () => {
         return m$('span').parent().length === $('span').parent().length;
     })
-})
+
+    let url1 = 'ajax.html',
+        url2 = 'notfound.html';
+
+    $.get(url1, function () { console.log('jURL1','SUCCESS', /*this,*/ arguments) })
+    .then(function () { console.log('jURL1','then', /*this,*/ arguments) })
+    .done(function () { console.log('jURL1','done', /*this,*/ arguments) })
+    .fail(function () { console.log('jURL1','fail', /*this,*/ arguments) })
+    .always(function () { console.log('jURL1','always', /*this,*/ arguments) });
+
+    $.get(url2, function () { console.log('jURL2','SUCCESS', /*this,*/ arguments) })
+    .then(function () { console.log('jURL2','then', /*this,*/ arguments) })
+    .done(function () { console.log('jURL2','done', /*this,*/ arguments) })
+    .fail(function () { console.log('jURL2','fail', /*this,*/ arguments) })
+    .always(function () { console.log('jURL2','always', /*this,*/ arguments) });
+
+    m$.get(url1, function () { console.log('mURL1','SUCCESS', /*this,*/ arguments) })
+    .then(function () { console.log('mURL1','then', /*this,*/ arguments) })
+    .done(function () { console.log('mURL1','done', /*this,*/ arguments) })
+    .fail(function () { console.log('mURL1','fail', /*this,*/ arguments) })
+    .always(function () { console.log('mURL1','always', /*this,*/ arguments) });
+
+    m$.get(url2, function () { console.log('mURL2','SUCCESS', /*this,*/ arguments) })
+    .then(function () { console.log('mURL2','then', /*this,*/ arguments) })
+    .done(function () { console.log('mURL2','done', /*this,*/ arguments) })
+    .fail(function () { console.log('mURL2','fail', /*this,*/ arguments) })
+    .always(function () { console.log('mURL2','always', /*this,*/ arguments) });
+})})

@@ -14,7 +14,7 @@ export declare function m$(selector?: mQuery | NodeList | Node | Node[] | string
 export declare const mQuery: typeof m$;
 export declare namespace m$ {
     type Class = mQuery;
-    type Deferred = m$.Promise.Deferred;
+    type Deferred = Promise.Deferred;
     type ForEachIterator<T> = (keyOrIndex: any, value: T) => boolean | void;
     type EachIterator = ForEachIterator<HTMLElement>;
     type ArrayLikeObject = PlainObject | ArrayLike<any>;
@@ -23,8 +23,8 @@ export declare namespace m$ {
         length?: number;
     };
     type AJAXSuccess = (data?: any, textStatus?: string, XHR?: XMLHttpRequest) => void;
-    type AJAXDetails = (XHR?: XMLHttpRequest, settingsOrStatus?: PlainObject | string, errorThrown?: string) => void;
-    type AJAXSettings = {
+    type AJAXDetails = (XHR?: XMLHttpRequest, optionsOrStatus?: PlainObject | string, errorThrown?: string) => void;
+    type AJAXOptions = {
         method?: string;
         beforeSend?: AJAXDetails;
         complete?: AJAXDetails;
@@ -63,6 +63,7 @@ export declare namespace m$ {
      */
     class mQuery implements ArrayLike<HTMLElement> {
         [index: number]: HTMLElement;
+        [key: string]: any;
         prevObject?: mQuery;
         length: number;
         /**
@@ -86,7 +87,7 @@ export declare namespace m$ {
          * Specify a function to execute when the DOM is fully loaded.
          * @param handler A function to execute after the DOM is ready.
          */
-        ready(handler: EventListener): this;
+        ready(handler: Function): this;
         /**
          * Iterate over a mQuery object, executing a function for each matched element.
          * @param handler A function to execute for each matched element.
@@ -382,8 +383,41 @@ export declare namespace m$ {
          * @param index A zero-based integer indicating which element to retrieve.
          */
         get(index?: number): HTMLElement[] | HTMLElement;
-        width(value?: any): mQuery | number;
-        height(value?: any): mQuery | number;
+        /**
+         * Get the current computed width for the first element in the set of matched elements.
+         */
+        width(): number;
+        /**
+         * Set the CSS width of each element in the set of matched elements.
+         * @param valueFn A function returning the width to set. Receives the index and the old width. "this" refers to the current element in the set.
+         */
+        width(valueFn: (index?: number, width?: number) => string | number): mQuery;
+        /**
+         * Set the CSS width of each element in the set of matched elements.
+         * @param value An integer representing the number of pixels, or an integer along with an optional unit of measure appended (as a string).
+         */
+        width(value: string | number): mQuery;
+        /**
+         * Get the current computed height for the first element in the set of matched elements.
+         */
+        height(): number;
+        /**
+         * Set the CSS height of every matched element.
+         * @param valueFn A function returning the height to set. Receives the index and the old height. "this" refers to the current element in the set.
+         */
+        height(valueFn: (index?: number, width?: number) => string | number): mQuery;
+        /**
+         * Set the CSS height of every matched element.
+         * @param value An integer representing the number of pixels, or an integer with an optional unit of measure appended (as a string).
+         */
+        height(value: string | number): mQuery;
+        /**
+         * Load data from the server and place the returned HTML into the matched element.
+         * @param url A string containing the URL to which the request is sent.
+         * @param data A plain object or string that is sent to the server with the request.
+         * @param complete A callback function that is executed when the request completes.
+         */
+        load(url: any, data?: AJAXSuccess | any, complete?: AJAXSuccess): this;
         /**
          * Merge the contents of an object onto the mQuery prototype to provide new mQuery instance methods.
          * @param obj An object to merge onto the jQuery prototype.
@@ -495,19 +529,24 @@ export declare namespace m$ {
         path?: string;
     }): void;
     /**
+     * Set default values for future Ajax requests. Its use is not recommended.
+     * @param options A set of key/value pairs that configure the default Ajax request. All options are optional.
+     */
+    function ajaxSetup(options: AJAXOptions): PlainObject;
+    /**
      * Perform an asynchronous HTTP (Ajax) request.
      * @param url A string containing the URL to which the request is sent.
      */
     function ajax(url: string): Deferred;
     /**
-     * @param settings AJAX options.
+     * @param options AJAX options.
      */
-    function ajax(settings: AJAXSettings): Deferred;
+    function ajax(options: AJAXOptions): Deferred;
     /**
      * @param url A string containing the URL to which the request is sent.
-     * @param settings AJAX options.
+     * @param options AJAX options.
      */
-    function ajax(url: string, settings: AJAXSettings): Deferred;
+    function ajax(url: string, options: AJAXOptions): Deferred;
     /**
      * Load data from the server using a HTTP GET request.
      * @param url A string containing the URL to which the request is sent.
@@ -523,9 +562,9 @@ export declare namespace m$ {
     function get(url: string, data: any, success: AJAXSuccess): Deferred;
     /**
      * Load data from the server using a HTTP GET request.
-     * @param settings A set of key/value pairs that configure the Ajax request.
+     * @param options A set of key/value pairs that configure the Ajax request.
      */
-    function get(settings: AJAXSettings): Deferred;
+    function get(options: AJAXOptions): Deferred;
     /**
      * Load data from the server using a HTTP POST request.
      * @param url A string containing the URL to which the request is sent.
@@ -541,9 +580,9 @@ export declare namespace m$ {
     function post(url: string, data: any, success: AJAXSuccess): Deferred;
     /**
      * Load data from the server using a HTTP POST request.
-     * @param settings A set of key/value pairs that configure the Ajax request.
+     * @param options A set of key/value pairs that configure the Ajax request.
      */
-    function post(settings: AJAXSettings): Deferred;
+    function post(options: AJAXOptions): Deferred;
     function param(obj: ArrayLikeObject, tradicional?: boolean): string;
     /**
      * Set event shorthand methods.
@@ -555,7 +594,7 @@ export declare namespace m$ {
      * @param beforeStart A function that is called just before the constructor returns.
      */
     function Deferred(beforeStart?: Function): Deferred;
-    const ready: (handler: EventListener) => mQuery;
+    const ready: (handler: Function) => mQuery;
 }
 export declare namespace m$.Promise {
     enum State {
@@ -580,6 +619,6 @@ export declare namespace m$.Promise {
         done(callback: (...args: any[]) => void): Deferred;
         fail(callback: (...args: any[]) => void): Deferred;
         then(successFilter: (...args: any[]) => any, errorFilter?: (...args: any[]) => any): Deferred;
-        allways(callback: (...args: any[]) => void): Deferred;
+        always(callback: (...args: any[]) => void): Deferred;
     }
 }
