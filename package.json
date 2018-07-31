@@ -1,6 +1,6 @@
 {
   "name": "@ecromaneli/mquery",
-  "version": "2.0.3",
+  "version": "2.1.0",
   "description": "The mQuery (or Mini-jQuery) is a most simple and clean way to query HTML elements and bind Event Handlers without jQuery.",
   "main": "dist/module/mquery",
   "typings": "dist/module/mquery",
@@ -16,8 +16,8 @@
     "url": "git+https://github.com/ECRomaneli/mQuery.git"
   },
   "keywords": [
-    "jquery",
     "mquery",
+    "jquery",
     "node",
     "htmlelement",
     "html",

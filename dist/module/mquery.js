@@ -21,7 +21,7 @@ exports.mQuery = m$;
     // init constants
     const DOC = document;
     const WIN = window || DOC.defaultView;
-    const AJAX_CONFIG = {
+    var AJAX_CONFIG = {
         contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
         method: HTTP.GET,
         statusCode: {},
@@ -604,32 +604,56 @@ exports.mQuery = m$;
             return index < this.length ? this[index] : void 0;
         }
         width(value) {
-            return size(this, 'Width', value);
+            if (!typeOf(value, 'function')) {
+                return size(this, 'Width', value);
+            }
+            return this.each((i, elem) => {
+                let $elem = m$(elem);
+                $elem.width(value.call(elem, i, $elem.width()));
+            });
         }
         height(value) {
-            return size(this, 'Height', value);
+            if (!typeOf(value, 'function')) {
+                return size(this, 'Height', value);
+            }
+            return this.each((i, elem) => {
+                let $elem = m$(elem);
+                $elem.height(value.call(elem, i, $elem.height()));
+            });
         }
-        load(url, dataOrComplete, complete) {
+        /**
+         * Load data from the server and place the returned HTML into the matched element.
+         * @param url A string containing the URL to which the request is sent.
+         * @param data A plain object or string that is sent to the server with the request.
+         * @param complete A callback function that is executed when the request completes.
+         */
+        load(url, data, complete) {
             // If instance is empty, just return
             if (isEmpty(this)) {
                 return this;
             }
             // Get parameters
-            let data = dataOrComplete;
             if (!isSet(complete)) {
-                complete = dataOrComplete;
+                complete = data;
                 data = void 0;
             }
             // Get selector with the url (if exists)
             let matches = url.trim().match(/^([^\s]+)\s?(.*)$/), selector = matches[2];
-            url = matches[1];
-            // Request url with data
-            m$.get(url, data, (data) => {
-                if (selector) {
-                    data = m$(data).filter(selector);
+            m$.ajax({
+                url: matches[1],
+                data: data,
+                success: (res) => {
+                    if (selector) {
+                        res = m$(res).filter(selector);
+                    }
+                    this.empty().append(res);
+                },
+                complete: (req, s) => {
+                    this.each((_, elem) => {
+                        complete.call(elem, req.responseText, s, req);
+                    });
                 }
-                this.empty().append(data);
-            }).allways(complete);
+            });
             return this;
         }
         /**
@@ -644,6 +668,8 @@ exports.mQuery = m$;
     m$.Class = mQuery;
     m$.fn = mQuery.prototype;
     m$.prototype = m$.fn;
+    // JUST FOR COMPATIBILITY
+    m$.fn.jquery = '3.3.1';
     m$.fn.splice = Array.prototype.splice;
     /* *** ============================  Utils  ============================ *** */
     /**
@@ -1022,73 +1048,80 @@ exports.mQuery = m$;
         return json(data, true);
     }
     m$.cookie = cookie;
-    function ajax(url, settings = {}) {
-        let deferred = m$.Deferred(), request;
+    /**
+     * Set default values for future Ajax requests. Its use is not recommended.
+     * @param options A set of key/value pairs that configure the default Ajax request. All options are optional.
+     */
+    function ajaxSetup(options) {
+        each(options, (key, value) => { AJAX_CONFIG[key] = value; });
+        return AJAX_CONFIG;
+    }
+    m$.ajaxSetup = ajaxSetup;
+    function ajax(url, options = {}) {
+        let dfrr = m$.Deferred(), request;
         if (typeOf(url, 'string')) {
-            settings.url = url;
+            options.url = url;
         }
         else {
-            settings = url;
+            options = url;
         }
         each(AJAX_CONFIG, (key, value) => {
-            if (isSet(settings[key])) {
+            if (isSet(options[key])) {
                 return;
             }
-            settings[key] = value;
+            options[key] = value;
         });
         // Create XMLHtmlRequest
-        request = settings.xhr();
+        request = options.xhr();
         // Call beforeSend
-        settings.beforeSend && settings.beforeSend(request, settings);
+        options.beforeSend && options.beforeSend(request, options);
         // Set Method
-        settings.method = (settings.type || settings.method).toUpperCase();
+        options.method = (options.type || options.method).toUpperCase();
         let // Set context of callbacks
-        context = settings.context || settings, 
+        context = options.context || options, 
         // Deferred => resolve
         resolve = (data) => {
-            if (isSet(settings.dataFilter)) {
-                data = settings.dataFilter(data, request.getResponseHeader('Content-Type'));
+            if (isSet(options.dataFilter)) {
+                // TODO: If start works with dataType, change second param to dataType
+                data = options.dataFilter(data, request.getResponseHeader('Content-Type'));
             }
-            deferred.resolveWith(context, json(data, true), 'success', request);
+            dfrr.resolveWith(context, json(data, true), 'success', request);
         }, 
         // Deferred => reject
-        reject = (textStatus, _e) => {
+        reject = (textStatus) => {
             let errorThrown = request.statusText.replace(/^[\d*\s]/g, '');
-            deferred.rejectWith(context, request, textStatus, errorThrown);
+            dfrr.rejectWith(context, request, textStatus, errorThrown);
         };
         // Set ajax default callbacks (success, error and complete)
-        deferred.then(settings.success, settings.error);
-        if (isSet(settings.complete)) {
-            deferred.done((_d, status, request) => {
-                settings.complete.apply(this, [request, status]);
-            }).fail((request, textStatus) => {
-                settings.complete.apply(this, [request, textStatus]);
-            });
+        if (isSet(options.complete)) {
+            dfrr.done(function (_d, s, req) { options.complete(req, s); })
+                .fail(function (req, s) { options.complete(req, s); });
         }
+        dfrr.done(options.success).fail(options.error);
         // Setting URL Encoded data
-        if (settings.data && settings.method === HTTP.GET) {
-            let separator = settings.url.indexOf('?') >= 0 ? '&' : '?';
-            settings.url += separator + param(settings.data);
+        if (options.data && options.method === HTTP.GET) {
+            let separator = options.url.indexOf('?') >= 0 ? '&' : '?';
+            options.url += separator + param(options.data);
         }
         // Open request
-        request.open(settings.method, settings.url, settings.async, settings.username, settings.password);
+        request.open(options.method, options.url, options.async, options.username, options.password);
         // Override mime type
-        if (isSet(settings.mimeType)) {
-            request.overrideMimeType(settings.mimeType);
+        if (isSet(options.mimeType)) {
+            request.overrideMimeType(options.mimeType);
         }
         // Set headers
         request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        if (isSet(settings.headers)) {
-            each(settings.headers, (header, value) => {
+        if (isSet(options.headers)) {
+            each(options.headers, (header, value) => {
                 request.setRequestHeader(header, value);
             });
         }
-        if (settings.contentType !== false) {
-            request.setRequestHeader('Content-Type', settings.contentType);
+        if (options.contentType !== false) {
+            request.setRequestHeader('Content-Type', options.contentType);
         }
-        if (settings.async) {
+        if (options.async) {
             // Set timeout in ms
-            request.timeout = settings.timeout;
+            request.timeout = options.timeout;
         }
         else {
             console.warn("[Deprecation] Synchronous XMLHttpRequest on the main thread " +
@@ -1097,24 +1130,26 @@ exports.mQuery = m$;
         }
         // Listeners
         request.onload = () => {
+            let statusFn = options.statusCode[request.status];
+            statusFn && statusFn();
             if (request.status === 200) {
                 resolve(request.response);
             }
             else {
-                reject(null, request.statusText);
+                reject('error');
             }
         };
-        request.onerror = () => { reject('error', 'Connection error.'); };
-        request.ontimeout = () => { reject('timeout', 'Request timed out.'); };
-        request.onabort = () => { reject('abort', 'Request aborted.'); };
+        request.onerror = () => { reject('error'); };
+        request.ontimeout = () => { reject('timeout'); };
+        request.onabort = () => { reject('abort'); };
         // Proccess data
-        if (settings.method === HTTP.POST || settings.method === HTTP.PUT) {
-            request.send(param(settings.data));
+        if (options.method === HTTP.POST || options.method === HTTP.PUT) {
+            request.send(param(options.data));
         }
         else {
             request.send();
         }
-        return deferred.promise();
+        return dfrr.promise();
     }
     m$.ajax = ajax;
     /**
@@ -1137,13 +1172,13 @@ exports.mQuery = m$;
     /**
      * Build default requests
      */
-    function requestBuilder(method, urlOrSettings, dataOrSuccess, success) {
-        let settings, data;
-        if (typeOf(urlOrSettings, 'string')) {
-            settings = { url: urlOrSettings };
+    function requestBuilder(method, urlOrOptions, dataOrSuccess, success) {
+        let options, data;
+        if (typeOf(urlOrOptions, 'string')) {
+            options = { url: urlOrOptions };
         }
         else {
-            settings = urlOrSettings;
+            options = urlOrOptions;
         }
         if (typeOf(dataOrSuccess, 'function')) {
             success = dataOrSuccess;
@@ -1151,10 +1186,10 @@ exports.mQuery = m$;
         else {
             data = dataOrSuccess;
         }
-        settings.method = method;
-        settings.data = data;
-        settings.success = success;
-        return ajax(settings);
+        options.method = method;
+        options.data = data;
+        options.success = success;
+        return ajax(options);
     }
     /**
      * Find elements by selector in context and insert in inst.
@@ -1186,12 +1221,12 @@ exports.mQuery = m$;
         inst.prevObject = context;
         return inst;
     }
-    function get(urlOrSettings, dataOrSuccess, success) {
-        return requestBuilder(HTTP.GET, urlOrSettings, dataOrSuccess, success);
+    function get(urlOrOptions, dataOrSuccess, success) {
+        return requestBuilder(HTTP.GET, urlOrOptions, dataOrSuccess, success);
     }
     m$.get = get;
-    function post(urlOrSettings, dataOrSuccess, success) {
-        return requestBuilder(HTTP.POST, urlOrSettings, dataOrSuccess, success);
+    function post(urlOrOptions, dataOrSuccess, success) {
+        return requestBuilder(HTTP.POST, urlOrOptions, dataOrSuccess, success);
     }
     m$.post = post;
     function param(obj, tradicional = false) {
@@ -1234,12 +1269,18 @@ exports.mQuery = m$;
             State["Resolved"] = "resolved";
             State["Rejected"] = "rejected";
         })(State = Promise.State || (Promise.State = {}));
-        function call(fns, context = this, args) {
-            let fnReturn;
+        function returnArgs(fn) {
+            // return fn;
+            return function () {
+                fn.apply(this, arguments);
+                return arguments;
+            };
+        }
+        function call(fns, context, args) {
             fns.forEach((fn) => {
-                fnReturn = fn.apply(context, args);
-                fnReturn !== void 0 && (args = fnReturn);
+                args = fn.apply(context, args) || [void 0];
             });
+            return args;
         }
         /**
          * Chainable utility
@@ -1269,13 +1310,13 @@ exports.mQuery = m$;
             }
             resolveWith(context, ...args) {
                 if (this.changeState(State.Resolved, context, args)) {
-                    call(this.pipeline.done, context, args);
+                    this.pipeline.args = call(this.pipeline.done, context, args);
                 }
                 return this;
             }
             rejectWith(context, ...args) {
                 if (this.changeState(State.Rejected, context, args)) {
-                    call(this.pipeline.fail, context, args);
+                    this.pipeline.args = call(this.pipeline.fail, context, args);
                 }
                 return this;
             }
@@ -1292,7 +1333,9 @@ exports.mQuery = m$;
                 if (this.state() === State.Resolved) {
                     callback.apply(this.pipeline.context, this.pipeline.args);
                 }
-                this.pipeline.done.push(callback);
+                else {
+                    this.pipeline.done.push(returnArgs(callback));
+                }
                 return this;
             }
             fail(callback) {
@@ -1302,14 +1345,31 @@ exports.mQuery = m$;
                 if (this.state() === State.Rejected) {
                     callback.apply(this.pipeline.context, this.pipeline.args);
                 }
-                this.pipeline.fail.push(callback);
+                else {
+                    this.pipeline.fail.push(returnArgs(callback));
+                }
                 return this;
             }
             then(successFilter, errorFilter) {
-                return this.done(successFilter).fail(errorFilter);
+                let p = this.pipeline;
+                if (!successFilter) {
+                    return this;
+                }
+                if (this.state() === State.Resolved) {
+                    successFilter.apply(p.context, p.args);
+                }
+                p.done.push(successFilter);
+                if (!errorFilter) {
+                    return this;
+                }
+                if (this.state() === State.Rejected) {
+                    errorFilter.apply(p.context, p.args);
+                }
+                p.fail.push(errorFilter);
+                return this;
             }
-            allways(callback) {
-                return this.then(callback, callback);
+            always(callback) {
+                return this.done(callback).fail(callback);
             }
         }
         Promise.Deferred = Deferred;

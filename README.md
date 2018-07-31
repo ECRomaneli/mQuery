@@ -209,6 +209,15 @@ Actually, all functions listed behind, are jQuery compatible. Then, all mQuery c
     m$.Deferred(beforeStart?: Function): Deferred
 ```
 
+### Shorthand Methods
+```typescript
+    // To use shorthand event methods, declare it using:
+    m$.shorthands(events: string[])
+
+    // Example:
+    m$.shorthands(['click', 'mouseenter', 'focus'])
+```
+
 ### Utils
 ```typescript
     // http://api.jquery.com/jQuery.isArrayLike/
