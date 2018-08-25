@@ -43,30 +43,30 @@ exports.mQuery = m$;
          */
         constructor(selector, context) {
             this.length = 0;
-            // If selector is a false value with no context or is document
-            let empty = isFalse(selector);
-            if ((empty && !context) || typeOf(selector, ['document', 'window'])) {
-                // If has selector, then add selector into mQuery list
-                !empty && this.push(selector);
-                // Return mQuery instance
+            // If the selector is equivalent to false, return
+            if (isFalse(selector)) {
                 return this;
             }
-            // If selector is function
+            // If selector is Document or Window, return instance with selector
+            if (typeOf(selector, ['document', 'window'])) {
+                return this.push(selector);
+            }
+            // If selector is Function, use it like ready callback and return
             if (typeOf(selector, 'function')) {
                 return ROOT.ready(selector);
             }
-            // If selector is NOT string
+            // If selector is NOT string merge selector and return
             if (!typeOf(selector, 'string')) {
                 return merge(this, createArr(selector));
             }
-            // If is HTML, parse HTML and, if any element has been created merge
+            // Try parse HTML and, if any element has been created, merge and return
             if (isHTML(selector)) {
                 let elems = parseHTML(selector);
                 if (elems.length) {
                     return merge(this, elems);
                 }
             }
-            // If selector is not selector, find selector with querySelector
+            // Find selector with find function and return
             return find(this, createContext(context), selector);
         }
         // =================== ARRAY PROPERTIES =================== //
@@ -77,11 +77,7 @@ exports.mQuery = m$;
             if (!isSet(elem)) {
                 return this;
             }
-            if (!elem[m$.APP_NAME]) {
-                // Set APP_NAME property into Node
-                elem[m$.APP_NAME] = { $ref: this };
-            }
-            else {
+            if (isSet(elem[m$.APP_NAME])) {
                 // Get APP_NAME property
                 let prop = elem[m$.APP_NAME];
                 // Verify if elem has been inserted inside this list before (last)
@@ -90,6 +86,15 @@ exports.mQuery = m$;
                 }
                 // Add list reference to the element
                 prop.$ref = this;
+            }
+            else {
+                // Set APP_NAME property into Node
+                elem[m$.APP_NAME] = {
+                    $ref: this,
+                    data: [],
+                    hasAttr: void 0,
+                    events: []
+                };
             }
             // Add element increasing length
             this[this.length++] = elem;
@@ -129,50 +134,77 @@ exports.mQuery = m$;
         each(handler) {
             return each(this, handler);
         }
-        on(events, selector, handler) {
-            let $elems = this;
-            if (isSet(handler)) {
-                $elems = this.find(selector);
+        /**
+         * Attach an event handler function for one or more events to the selected elements.
+         * @param events One or more space-separated event types.
+         * @param selector A selector string to filter the descendants of the selected elements that trigger the event.
+         * @param data Data to be passed to the handler in event.data when an event occurs.
+         * @param handler A function to execute when the event is triggered.
+         */
+        // TODO: Add event namespace
+        on(events, selector, data, handler) {
+            let length = arguments.length;
+            if (length < 4) {
+                for (let i = length - 1; i > 0; --i) {
+                    let arg = arguments[i], type = (typeof arg).toLowerCase();
+                    if (type === 'function') {
+                        if (!handler) {
+                            handler = arg;
+                            arguments[i] = void 0;
+                        }
+                    }
+                    else if (type !== 'string') {
+                        if (!data) {
+                            data = arg;
+                            arguments[i] = void 0;
+                        }
+                    }
+                }
             }
-            else {
-                handler = selector;
-            }
-            $elems.each((_, elem) => {
-                events.split(' ').forEach((event) => {
-                    elem.addEventListener(event, handler, true);
-                });
-            });
-            return this;
+            return addEventListener(this, events, selector, data, handler);
         }
-        one(events, selector, handler) {
-            let $elems = this, oneHandler;
-            if (isSet(handler)) {
-                $elems = this.find(selector);
+        /**
+         * Attach a handler to an event for the elements. The handler is executed at most once per element per event type.
+         * @param events One or more space-separated event types.
+         * @param selector A selector string to filter the descendants of the selected elements that trigger the event.
+         * @param data Data to be passed to the handler in event.data when an event occurs.
+         * @param handler A function to execute when the event is triggered.
+         */
+        one(events, selector, data, handler) {
+            if (!isSet(handler)) {
+                for (let i = arguments.length - 1; i > 0; --i) {
+                    let arg = arguments[i], type = (typeof arg).toLowerCase();
+                    if (type === 'function') {
+                        if (!handler) {
+                            handler = arg;
+                            arguments[i] = void 0;
+                        }
+                    }
+                    else if (type !== 'string') {
+                        if (!data) {
+                            data = arg;
+                            arguments[i] = void 0;
+                        }
+                    }
+                }
             }
-            else {
-                handler = selector;
-            }
-            events.split(' ').forEach((event) => {
-                oneHandler = function () {
-                    m$(this).off(event, oneHandler);
-                    return handler.apply(this, arguments);
-                };
-                $elems.on(event, oneHandler);
-            });
-            return this;
+            return addEventListener(this, events, selector, data, handler, true);
         }
+        /**
+         * Remove an event handler.
+         * @param events One or more space-separated event types.
+         * @param selector A selector which should match the one originally passed to .on() when attaching event handlers.
+         * @param handler A handler function previously attached for the event(s).
+         */
         off(events, selector, handler) {
-            let $elems = this;
-            if (isSet(handler)) {
-                $elems = this.find(selector);
+            if (!isSet(handler)) {
+                let type = (typeof selector).toLowerCase();
+                if (type === 'function') {
+                    handler = selector;
+                    selector = void 0;
+                }
             }
-            else {
-                handler = selector;
-            }
-            $elems.each((_, elem) => {
-                events.split(' ').forEach((event) => { elem.removeEventListener(event, handler, true); });
-            });
-            return this;
+            return removeEventListener(this, events, selector, handler);
         }
         is(filter) {
             let isStr = typeOf(filter, 'string');
@@ -182,9 +214,7 @@ exports.mQuery = m$;
             let elems = m$(), isStr = typeOf(filter, 'string');
             this.each((i, elem) => {
                 if (isStr) {
-                    if (matches(elem, filter)) {
-                        elems.push(elem);
-                    }
+                    matches(elem, filter) && elems.push(elem);
                 }
                 else if (filter.call(elem, i, elem)) {
                     elems.push(elem);
@@ -249,24 +279,21 @@ exports.mQuery = m$;
         end() {
             return this.prevObject || EMPTY;
         }
-        /**
-         * Execute all handlers and behaviors attached to the matched elements for the given event type.
-         * @param event A string containing a JavaScript event type, such as click or submit.
-         * @param params Additional parameters to pass along to the event handler.
-         */
         trigger(event, params) {
-            return this.each((_, elem) => {
-                if (event === 'focus') {
-                    elem.focus();
-                    return;
-                }
-                let customEvent;
+            let customEvent = event;
+            // TODO: Insert params into detail if event is a Event.
+            if (typeOf(event, 'string')) {
                 if (WIN && WIN['CustomEvent']) {
-                    customEvent = new CustomEvent(event, params);
+                    customEvent = new CustomEvent(event, { bubbles: true, cancelable: true, detail: params });
                 }
                 else {
-                    customEvent = DOC.createEvent(snakeToCamelCase(event));
+                    customEvent = DOC.createEvent('CustomEvent');
                     customEvent.initCustomEvent(event, true, true, params);
+                }
+            }
+            return this.each((_, elem) => {
+                if (event === 'focus') {
+                    return elem.focus();
                 }
                 elem.dispatchEvent(customEvent);
             });
@@ -603,6 +630,13 @@ exports.mQuery = m$;
             }
             return index < this.length ? this[index] : void 0;
         }
+        /**
+         * Reduce the set of matched elements to the one at the specified index.
+         * @param index An integer indicating the 0-based position of the element.
+         */
+        eq(index) {
+            return setContext(m$(this.get(index)), this);
+        }
         width(value) {
             if (!typeOf(value, 'function')) {
                 return size(this, 'Width', value);
@@ -620,6 +654,23 @@ exports.mQuery = m$;
                 let $elem = m$(elem);
                 $elem.height(value.call(elem, i, $elem.height()));
             });
+        }
+        /**
+         * Bind one or two handlers to the matched elements.
+         * @param handlerIn A function to execute when the mouse pointer enters the element.
+         * @param handlerOut A function to execute when the mouse pointer leaves the element.
+         */
+        hover(handlerIn, handlerOut) {
+            if (isSet(handlerIn)) {
+                if (!isSet(handlerOut)) {
+                    return this.on('mouseenter mouseleave', handlerIn);
+                }
+                this.on('mouseenter', handlerIn);
+            }
+            if (isSet(handlerOut)) {
+                this.on('mouseleave', handlerOut);
+            }
+            return this;
         }
         /**
          * Load data from the server and place the returned HTML into the matched element.
@@ -680,6 +731,107 @@ exports.mQuery = m$;
         return param !== void 0;
     }
     /**
+     * Verify if array-like object is empty
+     */
+    function isEmpty(arr) {
+        return !arr || !arr.length;
+    }
+    function emptyElement(elem) {
+        while (elem.lastChild) {
+            elem.removeChild(elem.lastChild);
+        }
+    }
+    function addEvent(elem, event, fn, selector, onCapture) {
+        let prop = elem[m$.APP_NAME].events, list = prop[selector || 0];
+        if (!isSet(list)) {
+            list = prop[selector || 0] = [];
+        }
+        if (isSet(list[event])) {
+            list[event].push(fn);
+        }
+        else {
+            list[event] = [fn];
+        }
+        elem.addEventListener(event, fn.$handler, onCapture);
+    }
+    /**
+     * The "elem[APP_NAME].events" pattern is:
+     * - Selector. If not exists, zero;
+     * - Event name;
+     * - Array of handlers.
+     */
+    // FIXIT: QUANDO NAO PASSA EVENT ELE DELETA TUDO SEM CHECAR SE TEM UMA FN OU UM SELECTOR
+    function removeEvent(elem, event, selector, fn) {
+        let list = elem[m$.APP_NAME].events;
+        // .off()
+        if (!isSet(event)) {
+            for (let selector in list) {
+                for (let event in list[selector]) {
+                    removeEvent(elem, event, selector, fn);
+                }
+            }
+            return;
+        }
+        // get events
+        list = list[selector || 0];
+        if (!isSet(list)) {
+            return;
+        }
+        // get handlers
+        list = list[event];
+        if (!isSet(list)) {
+            return;
+        }
+        // .off(events[, selector])
+        if (!isSet(fn)) {
+            while (list.length) {
+                removeEvent(elem, event, selector, list[0]);
+            }
+            return;
+        }
+        // Get index of handler
+        let index = inArray(fn, list);
+        if (index === -1) {
+            return;
+        }
+        // .off(events[, selector], handler)
+        elem.removeEventListener(event, fn.$handler);
+        // Remove handler from list
+        list.splice(index, 1);
+    }
+    function addEventListener(inst, events, selector, data, fn, one) {
+        let hasSelector = isSet(selector);
+        fn.$handler = function (e) {
+            if (one) {
+                removeEvent(this, e.type, selector, fn);
+            }
+            if (hasSelector) {
+                addEventListener(m$(e.path).filter(selector), e.type, void 0, data, function () { return fn.apply(this, arguments); }, true);
+                return;
+            }
+            e.data = data;
+            return fn.apply(this, arguments);
+        };
+        inst.each((_, elem) => {
+            events.split(' ').forEach((event) => {
+                addEvent(elem, event, fn, selector, !!selector);
+            });
+        });
+        return inst;
+    }
+    function removeEventListener(inst, events, selector, fn) {
+        inst.each((_, elem) => {
+            if (!events) {
+                removeEvent(elem, void 0, selector, fn);
+                return;
+            }
+            events.split(' ').forEach((event) => {
+                removeEvent(elem, event, selector, fn);
+            });
+        });
+        return inst;
+    }
+    /**
      * [ONLY MQUERY] Verify if parameter is false ([], false, null, undefined, empty array-like objects).
      * @param param Parameter to be verified.
      */
@@ -691,47 +843,33 @@ exports.mQuery = m$;
     }
     m$.isFalse = isFalse;
     /**
-     * Verify if array-like object is empty
-     */
-    function isEmpty(arr) {
-        return !arr || !arr.length;
-    }
-    function emptyElement(elem) {
-        while (elem.lastChild) {
-            elem.removeChild(elem.lastChild);
-        }
-    }
-    function instanceOf(obj, ...classes) {
-        return some(classes, (_, cl) => obj instanceof cl);
-    }
-    m$.instanceOf = instanceOf;
-    /**
      * Verify the type of object passed and compare.
      */
     function typeOf(obj, types) {
         let matched = (typeof obj).toLowerCase(), some = (type) => {
-            if (matched === 'object') {
-                if (type === 'document') {
-                    return obj instanceof Document;
-                }
-                if (type === 'element') {
-                    return obj instanceof Element;
-                }
-                if (type === 'mquery') {
-                    return obj instanceof mQuery;
-                }
-                if (type === 'window') {
-                    return obj instanceof Window;
-                }
+            if (matched !== 'object') {
+                return matched === type;
             }
-            return matched === type;
+            if (type === 'document') {
+                return obj instanceof Document;
+            }
+            if (type === 'window') {
+                return obj instanceof Window;
+            }
+            if (type === 'element') {
+                return obj instanceof Element;
+            }
+            if (type === 'array') {
+                return Array.isArray(obj);
+            }
+            // if (type === 'mquery')      { return obj instanceof mQuery }
+            return false;
         };
         if (Array.isArray(types)) {
             return types.some(some);
         }
         return some(types);
     }
-    m$.typeOf = typeOf;
     /**
      * Transform snake case string to camel case.
      */
@@ -782,6 +920,9 @@ exports.mQuery = m$;
         if (elem.matches) {
             return elem.matches(selector);
         }
+        if (!typeOf(elem, 'element')) {
+            return false;
+        }
         emptyElement(m$.AUX_ELEM);
         m$.AUX_ELEM.appendChild(elem);
         return !!m$.AUX_ELEM.querySelector(selector);
@@ -790,7 +931,7 @@ exports.mQuery = m$;
      * Verify if element has parent.
      */
     function hasParent(elem) {
-        return !!elem.parentNode;
+        return !!elem.parentElement;
     }
     /**
      * Generate list of elements to concat.
@@ -801,6 +942,9 @@ exports.mQuery = m$;
         }
         return [selector];
     }
+    /**
+     * Create context (prevObject) and return.
+     */
     function createContext(selector) {
         if (!selector) {
             return ROOT;
@@ -809,8 +953,8 @@ exports.mQuery = m$;
         if (selector instanceof mQuery) {
             return selector;
         }
-        // Create new instance
-        return m$(selector, selector.prevObject || ROOT);
+        // If selector is a string, create new instance
+        return m$(selector, ROOT);
     }
     /**
      * Generic child insertion.
@@ -838,8 +982,7 @@ exports.mQuery = m$;
      * @param key Key to search or false if wants return all current processed data.
      */
     function dataRef(elem, key) {
-        let data = elem[m$.APP_NAME]['data'], hasAttr = elem[m$.APP_NAME]['hasAttr'];
-        !data && (data = elem[m$.APP_NAME]['data'] = {});
+        let data = elem[m$.APP_NAME].data, hasAttr = elem[m$.APP_NAME].hasAttr;
         if (key) {
             // Get by parameters if not exists
             if (!isSet(data[key]) && isSet(elem.dataset[key])) {
@@ -853,7 +996,7 @@ exports.mQuery = m$;
             each(elem.dataset, (key, value) => {
                 !data[key] && (data[key] = json(value, true));
             });
-            elem[m$.APP_NAME]['hasAttr'] = true;
+            elem[m$.APP_NAME].hasAttr = true;
         }
         return data;
     }
@@ -890,6 +1033,24 @@ exports.mQuery = m$;
         return obj.length === 1 ? [obj[0]] : Array.apply(null, obj);
     }
     m$.makeArray = makeArray;
+    /**
+     * Search for a specified value within an array and return its index (or -1 if not found).
+     * @param value The value to search for.
+     * @param arr An array through which to search.
+     * @param fromIndex The index of the array at which to begin the search. The default is 0, which will search the whole array.
+     */
+    function inArray(value, arr, fromIndex = 0) {
+        if (fromIndex === 0 && arr.indexOf) {
+            return arr.indexOf(value);
+        }
+        for (let i = fromIndex; i < arr.length; i++) {
+            if (value === arr[i]) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    m$.inArray = inArray;
     /**
      * Takes a function and returns a new one that will always have a particular context.
      * @param target The function whose context will be changed.
@@ -1037,7 +1198,7 @@ exports.mQuery = m$;
         // Find cookie with 'name'
         each(rawCookies, (_, cookie) => {
             cookie = cookie.trim();
-            if (cookie.indexOf(name) !== 0) {
+            if (inArray(name, cookie) !== 0) {
                 return true;
             }
             // When find name, get data and stop each
@@ -1100,7 +1261,7 @@ exports.mQuery = m$;
         dfrr.done(options.success).fail(options.error);
         // Setting URL Encoded data
         if (options.data && options.method === HTTP.GET) {
-            let separator = options.url.indexOf('?') >= 0 ? '&' : '?';
+            let separator = inArray('?', options.url) !== -1 ? '&' : '?';
             options.url += separator + param(options.data);
         }
         // Open request
@@ -1212,7 +1373,7 @@ exports.mQuery = m$;
      * Return if text is HTML code or not.
      */
     function isHTML(text) {
-        return text.indexOf('<') !== -1;
+        return inArray('<', text) !== -1;
     }
     /**
      * Set context (prevObject) and return inst.
@@ -1249,7 +1410,9 @@ exports.mQuery = m$;
     }
     m$.shorthands = shorthands;
     /**
-     * A factory function that returns a chainable utility object with methods to register multiple callbacks into callback queues, invoke callback queues, and relay the success or failure state of any synchronous or asynchronous function.
+     * A factory function that returns a chainable utility object with methods
+     * to register multiple callbacks into callback queues, invoke callback queues,
+     * and relay the success or failure state of any synchronous or asynchronous function.
      * @param beforeStart A function that is called just before the constructor returns.
      */
     function Deferred(beforeStart) {

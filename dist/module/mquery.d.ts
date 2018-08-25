@@ -97,44 +97,28 @@ export declare namespace m$ {
          * Attach an event handler function for one or more events to the selected elements.
          * @param events One or more space-separated event types.
          * @param selector A selector string to filter the descendants of the selected elements that trigger the event.
+         * @param data Data to be passed to the handler in event.data when an event occurs.
          * @param handler A function to execute when the event is triggered.
          */
-        on(events: string, selector: string, handler: EventListener): this;
-        /**
-         * Attach an event handler function for one or more events to the selected elements.
-         * @param events One or more space-separated event types.
-         * @param handler A function to execute when the event is triggered.
-         */
-        on(events: string, handler: EventListener): this;
+        on(events: string, selector?: any, data?: any, handler?: EventListener): this;
         /**
          * Attach a handler to an event for the elements. The handler is executed at most once per element per event type.
          * @param events One or more space-separated event types.
          * @param selector A selector string to filter the descendants of the selected elements that trigger the event.
+         * @param data Data to be passed to the handler in event.data when an event occurs.
          * @param handler A function to execute when the event is triggered.
          */
-        one(events: string, selector: string, handler: EventListener): this;
-        /**
-         * Attach a handler to an event for the elements. The handler is executed at most once per element per event type.
-         * @param events One or more space-separated event types.
-         * @param handler A function to execute when the event is triggered.
-         */
-        one(events: string, handler: EventListener): this;
+        one(events: string, selector?: any, data?: any, handler?: EventListener): this;
         /**
          * Remove an event handler.
          * @param events One or more space-separated event types.
          * @param selector A selector which should match the one originally passed to .on() when attaching event handlers.
          * @param handler A handler function previously attached for the event(s).
          */
-        off(events: string, selector: string, handler: EventListener): this;
-        /**
-         * Remove an event handler.
-         * @param events One or more space-separated event types.
-         * @param handler A handler function previously attached for the event(s).
-         */
-        off(events: string, handler: EventListener): this;
+        off(events: string, selector?: any, handler?: EventListener): this;
         /**
          * Check the current matched set of elements against a selector or function.
-         * @param is (i, elem) => boolean A function used as a test for every element in the set. Within the function, "this" refers to the current DOM element.
+         * @param is (i, elem) => boolean A function used as a test for every element in the set.
          */
         is(filter: (i: any, elem: any) => boolean): boolean;
         /**
@@ -193,10 +177,16 @@ export declare namespace m$ {
         end(): mQuery;
         /**
          * Execute all handlers and behaviors attached to the matched elements for the given event type.
-         * @param event A string containing a JavaScript event type, such as click or submit.
+         * @param event A Event object.
          * @param params Additional parameters to pass along to the event handler.
          */
-        trigger(event: string, params?: PlainObject): mQuery;
+        trigger(event: Event, params?: PlainObject | any[]): any;
+        /**
+         * Execute all handlers and behaviors attached to the matched elements for the given event type.
+         * @param eventType A string containing a JavaScript event type, such as click or submit.
+         * @param params Additional parameters to pass along to the event handler.
+         */
+        trigger(eventType: string, params?: PlainObject | any[]): any;
         /**
          * Get the value of an attribute for the first element in the set of matched elements.
          * @param attrName The name of the attribute to get.
@@ -384,6 +374,11 @@ export declare namespace m$ {
          */
         get(index?: number): HTMLElement[] | HTMLElement;
         /**
+         * Reduce the set of matched elements to the one at the specified index.
+         * @param index An integer indicating the 0-based position of the element.
+         */
+        eq(index?: number): mQuery;
+        /**
          * Get the current computed width for the first element in the set of matched elements.
          */
         width(): number;
@@ -412,6 +407,12 @@ export declare namespace m$ {
          */
         height(value: string | number): mQuery;
         /**
+         * Bind one or two handlers to the matched elements.
+         * @param handlerIn A function to execute when the mouse pointer enters the element.
+         * @param handlerOut A function to execute when the mouse pointer leaves the element.
+         */
+        hover(handlerIn: EventListener, handlerOut?: EventListener): this;
+        /**
          * Load data from the server and place the returned HTML into the matched element.
          * @param url A string containing the URL to which the request is sent.
          * @param data A plain object or string that is sent to the server with the request.
@@ -432,11 +433,6 @@ export declare namespace m$ {
      * @param param Parameter to be verified.
      */
     function isFalse(param: any): boolean;
-    function instanceOf(obj: any, ...classes: any[]): boolean;
-    /**
-     * Verify the type of object passed and compare.
-     */
-    function typeOf(obj: any, types: string | string[]): boolean;
     /**
      * [MQUERY ONLY] Verify if object is array-like.
      * @param obj Object to be verified.
@@ -453,6 +449,13 @@ export declare namespace m$ {
      * @param obj Any object to turn into a native Array.
      */
     function makeArray(obj: ArrayLike<any>): any[];
+    /**
+     * Search for a specified value within an array and return its index (or -1 if not found).
+     * @param value The value to search for.
+     * @param arr An array through which to search.
+     * @param fromIndex The index of the array at which to begin the search. The default is 0, which will search the whole array.
+     */
+    function inArray(value: any, arr: any, fromIndex?: number): number;
     /**
      * Takes a function and returns a new one that will always have a particular context.
      * @param target The function whose context will be changed.
@@ -590,7 +593,9 @@ export declare namespace m$ {
      */
     function shorthands(events: string[]): void;
     /**
-     * A factory function that returns a chainable utility object with methods to register multiple callbacks into callback queues, invoke callback queues, and relay the success or failure state of any synchronous or asynchronous function.
+     * A factory function that returns a chainable utility object with methods
+     * to register multiple callbacks into callback queues, invoke callback queues,
+     * and relay the success or failure state of any synchronous or asynchronous function.
      * @param beforeStart A function that is called just before the constructor returns.
      */
     function Deferred(beforeStart?: Function): Deferred;
