@@ -755,15 +755,15 @@ var mQuery = m$;
         }
     }
     function addEvent(elem, event, fn, selector, onCapture) {
-        var prop = elem[m$.APP_NAME].events, list = prop[selector || 0];
+        var prop = elem[m$.APP_NAME].events, list = prop[event], pos = selector || 0;
         if (!isSet(list)) {
-            list = prop[selector || 0] = [];
+            list = prop[event] = [];
         }
-        if (isSet(list[event])) {
-            list[event].push(fn);
+        if (isSet(list[pos])) {
+            list[pos].push(fn);
         }
         else {
-            list[event] = [fn];
+            list[pos] = [fn];
         }
         elem.addEventListener(event, fn.$handler, onCapture);
     }
@@ -774,57 +774,70 @@ var mQuery = m$;
      * - Array of handlers.
      */
     // FIXIT: QUANDO NAO PASSA EVENT ELE DELETA TUDO SEM CHECAR SE TEM UMA FN OU UM SELECTOR
+    //FOR FUTURE, ADD "HOLLOVER"(SCROLLTOP), MAYBE Animation, 
     function removeEvent(elem, event, selector, fn) {
         var list = elem[m$.APP_NAME].events;
-        // .off()
         if (!isSet(event)) {
-            for (var selector_1 in list) {
-                for (var event_1 in list[selector_1]) {
-                    removeEvent(elem, event_1, selector_1, fn);
+            // .off([selector,] handler)
+            if (isSet(fn)) {
+                for (var event_1 in list) {
+                    if (removeEvent(elem, event_1, selector, fn)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            // .off()
+            for (var event_2 in list) {
+                for (var selector_1 in list[event_2]) {
+                    removeEvent(elem, event_2, selector_1, fn);
                 }
             }
-            return;
+            return true;
         }
-        // get events
-        list = list[selector || 0];
-        if (!isSet(list)) {
-            return;
-        }
-        // get handlers
+        // get selectors
         list = list[event];
         if (!isSet(list)) {
-            return;
+            return false;
+        }
+        // get handlers
+        list = list[selector || 0];
+        if (!isSet(list)) {
+            return false;
         }
         // .off(events[, selector])
         if (!isSet(fn)) {
             while (list.length) {
                 removeEvent(elem, event, selector, list[0]);
             }
-            return;
+            return true;
         }
         // Get index of handler
         var index = inArray(fn, list);
         if (index === -1) {
-            return;
+            return false;
         }
         // .off(events[, selector], handler)
         elem.removeEventListener(event, fn.$handler);
         // Remove handler from list
         list.splice(index, 1);
+        return true;
     }
     function addEventListener(inst, events, selector, data, fn, one) {
         var hasSelector = isSet(selector);
-        fn.$handler = function (e) {
-            if (one) {
-                removeEvent(this, e.type, selector, fn);
-            }
-            if (hasSelector) {
-                addEventListener(m$(e.path).filter(selector), e.type, void 0, data, function () { return fn.apply(this, arguments); }, true);
-                return;
-            }
-            e.data = data;
-            return fn.apply(this, arguments);
-        };
+        if (!isSet(fn.$handler)) {
+            fn.$handler = function (e) {
+                if (one) {
+                    removeEvent(this, e.type, selector, fn);
+                }
+                if (hasSelector) {
+                    addEventListener(m$(e.path).filter(selector), e.type, void 0, data, function () { return fn.apply(this, arguments); }, true);
+                    return;
+                }
+                e.data = data;
+                return fn.apply(this, arguments);
+            };
+        }
         inst.each(function (_, elem) {
             events.split(' ').forEach(function (event) {
                 addEvent(elem, event, fn, selector, !!selector);
