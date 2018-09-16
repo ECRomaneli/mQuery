@@ -592,6 +592,15 @@ export declare namespace m$ {
      * @param events string[] Ex.: ['click', 'focus', 'mouseenter'] enable this shorthand methods.
      */
     function shorthands(events: string[]): void;
+    function Event(src: PlainObject, extraProperties?: PlainObject): any;
+    /**
+     * Creates a generic event with extra properties passed by parameter.
+     * @param type event type.
+     * @param extraProperties extra properties.
+     */
+    function Event(type: string, extraProperties?: PlainObject): any;
+    function extend(deep: true | void, target: Object, ...objectN: Object[]): any;
+    function extend(target: Object, object1: Object, ...objectN: Object[]): any;
     /**
      * A factory function that returns a chainable utility object with methods
      * to register multiple callbacks into callback queues, invoke callback queues,
@@ -600,30 +609,30 @@ export declare namespace m$ {
      */
     function Deferred(beforeStart?: Function): Deferred;
     const ready: (handler: Function) => mQuery;
-}
-export declare namespace m$.Promise {
-    enum State {
-        Pending = "pending",
-        Resolved = "resolved",
-        Rejected = "rejected"
-    }
-    /**
-     * Chainable utility
-     */
-    class Deferred {
-        private _state;
-        private pipeline;
-        constructor(beforeStart?: Function);
-        private changeState;
-        resolve(...args: any[]): this;
-        reject(...args: any[]): this;
-        resolveWith(context: any, ...args: any[]): this;
-        rejectWith(context: any, ...args: any[]): this;
-        state(): string;
-        promise(): Deferred;
-        done(callback: (...args: any[]) => void): Deferred;
-        fail(callback: (...args: any[]) => void): Deferred;
-        then(successFilter: (...args: any[]) => any, errorFilter?: (...args: any[]) => any): Deferred;
-        always(callback: (...args: any[]) => void): Deferred;
+    namespace Promise {
+        enum State {
+            Pending = "pending",
+            Resolved = "resolved",
+            Rejected = "rejected"
+        }
+        /**
+         * Chainable utility
+         */
+        class Deferred {
+            private _state;
+            private pipeline;
+            constructor(beforeStart?: Function);
+            private changeState;
+            resolve(...args: any[]): this;
+            reject(...args: any[]): this;
+            resolveWith(context: any, ...args: any[]): this;
+            rejectWith(context: any, ...args: any[]): this;
+            state(): string;
+            promise(): Deferred;
+            done(callback: (...args: any[]) => void): Deferred;
+            fail(callback: (...args: any[]) => void): Deferred;
+            then(successFilter: (...args: any[]) => any, errorFilter?: (...args: any[]) => any): Deferred;
+            always(callback: (...args: any[]) => void): Deferred;
+        }
     }
 }

@@ -281,16 +281,11 @@ exports.mQuery = m$;
         }
         trigger(event, params) {
             let customEvent = event;
-            // TODO: Insert params into detail if event is a Event.
             if (typeOf(event, 'string')) {
-                if (WIN && WIN['CustomEvent']) {
-                    customEvent = new CustomEvent(event, { bubbles: true, cancelable: true, detail: params });
-                }
-                else {
-                    customEvent = DOC.createEvent('CustomEvent');
-                    customEvent.initCustomEvent(event, true, true, params);
-                }
+                customEvent = m$.Event(event);
             }
+            // Set detail into the event
+            extend(createIfNeeded(event, 'detail', {}), params);
             return this.each((_, elem) => {
                 if (event === 'focus') {
                     return elem.focus();
@@ -741,17 +736,18 @@ exports.mQuery = m$;
             elem.removeChild(elem.lastChild);
         }
     }
+    /**
+     * Create if needed, and return list[pos]
+     */
+    function createIfNeeded(list, pos, newInst = []) {
+        if (!isSet(list[pos])) {
+            list[pos] = newInst;
+        }
+        return list[pos];
+    }
     function addEvent(elem, event, fn, selector, onCapture) {
-        let prop = elem[m$.APP_NAME].events, list = prop[event], pos = selector || 0;
-        if (!isSet(list)) {
-            list = prop[event] = [];
-        }
-        if (isSet(list[pos])) {
-            list[pos].push(fn);
-        }
-        else {
-            list[pos] = [fn];
-        }
+        let prop = elem[m$.APP_NAME].events;
+        createIfNeeded(createIfNeeded(prop, event), selector || 0).push(fn);
         elem.addEventListener(event, fn.$handler, onCapture);
     }
     /**
@@ -760,89 +756,76 @@ exports.mQuery = m$;
      * - Event name;
      * - Array of handlers.
      */
-    // FIXIT: QUANDO NAO PASSA EVENT ELE DELETA TUDO SEM CHECAR SE TEM UMA FN OU UM SELECTOR
     //FOR FUTURE, ADD "HOLLOVER"(SCROLLTOP), MAYBE Animation, 
     function removeEvent(elem, event, selector, fn) {
         let list = elem[m$.APP_NAME].events;
         if (!isSet(event)) {
-            // .off([selector,] handler)
-            if (isSet(fn)) {
-                for (let event in list) {
-                    if (removeEvent(elem, event, selector, fn)) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-            // .off()
+            // .off([selector, ][handler])
             for (let event in list) {
+                if (isSet(selector)) {
+                    removeEvent(elem, event, selector, fn);
+                    continue;
+                }
                 for (let selector in list[event]) {
                     removeEvent(elem, event, selector, fn);
                 }
             }
-            return true;
+            return;
         }
         // get selectors
         list = list[event];
         if (!isSet(list)) {
-            return false;
+            return;
         }
         // get handlers
         list = list[selector || 0];
         if (!isSet(list)) {
-            return false;
+            return;
         }
         // .off(events[, selector])
         if (!isSet(fn)) {
             while (list.length) {
                 removeEvent(elem, event, selector, list[0]);
             }
-            return true;
+            return;
         }
         // Get index of handler
         let index = inArray(fn, list);
         if (index === -1) {
-            return false;
+            return;
         }
         // .off(events[, selector], handler)
         elem.removeEventListener(event, fn.$handler);
         // Remove handler from list
         list.splice(index, 1);
-        return true;
+        return;
     }
     function addEventListener(inst, events, selector, data, fn, one) {
         let hasSelector = isSet(selector);
-        if (!isSet(fn.$handler)) {
-            fn.$handler = function (e) {
-                if (one) {
-                    removeEvent(this, e.type, selector, fn);
-                }
-                if (hasSelector) {
-                    addEventListener(m$(e.path).filter(selector), e.type, void 0, data, function () { return fn.apply(this, arguments); }, true);
-                    return;
-                }
-                e.data = data;
-                return fn.apply(this, arguments);
-            };
-        }
-        inst.each((_, elem) => {
+        fn.$handler = function (e) {
+            if (one) {
+                removeEvent(this, e.type, selector, fn);
+            }
+            if (hasSelector) {
+                addEventListener(m$(e.path).filter(selector), e.type, void 0, data, function () { return fn.apply(this, arguments); }, true);
+                return;
+            }
+            e.data = data;
+            return fn.apply(this, arguments);
+        };
+        return inst.each((_, elem) => {
             events.split(' ').forEach((event) => {
                 addEvent(elem, event, fn, selector, !!selector);
             });
         });
-        return inst;
     }
     function removeEventListener(inst, events, selector, fn) {
-        inst.each((_, elem) => {
-            if (!events) {
-                removeEvent(elem, void 0, selector, fn);
-                return;
-            }
-            events.split(' ').forEach((event) => {
+        let eventList = events ? events.split(' ') : [void 0];
+        return inst.each((_, elem) => {
+            eventList.forEach((event) => {
                 removeEvent(elem, event, selector, fn);
             });
         });
-        return inst;
     }
     /**
      * [ONLY MQUERY] Verify if parameter is false ([], false, null, undefined, empty array-like objects).
@@ -859,9 +842,9 @@ exports.mQuery = m$;
      * Verify the type of object passed and compare.
      */
     function typeOf(obj, types) {
-        let matched = (typeof obj).toLowerCase(), some = (type) => {
-            if (matched !== 'object') {
-                return matched === type;
+        let match = type(obj), some = (type) => {
+            if (match === type) {
+                return true;
             }
             if (type === 'document') {
                 return obj instanceof Document;
@@ -871,9 +854,6 @@ exports.mQuery = m$;
             }
             if (type === 'element') {
                 return obj instanceof Element;
-            }
-            if (type === 'array') {
-                return Array.isArray(obj);
             }
             // if (type === 'mquery')      { return obj instanceof mQuery }
             return false;
@@ -982,7 +962,7 @@ exports.mQuery = m$;
             if (typeOf(child, ['string', 'number'])) {
                 return stringInsertFn(child);
             }
-            // If node
+            // If node with no parent
             if (!hasParent(child)) {
                 return elemInsertFn(child);
             }
@@ -1018,7 +998,7 @@ exports.mQuery = m$;
      * @param obj Object to be verified.
      */
     function isArrayLike(obj) {
-        if (Array.isArray(obj)) {
+        if (typeOf(obj, 'array')) {
             return true;
         }
         if (!obj || typeOf(obj, ['function', 'string', 'window'])) {
@@ -1422,6 +1402,48 @@ exports.mQuery = m$;
         });
     }
     m$.shorthands = shorthands;
+    function Event(src, extraProperties = {}) {
+        let event, type;
+        if (typeOf(src, 'object')) {
+            type = src.type;
+        }
+        else {
+            type = src;
+        }
+        if (WIN && WIN['CustomEvent']) {
+            event = new CustomEvent(type, { bubbles: true, cancelable: true });
+        }
+        else {
+            event = DOC.createEvent('CustomEvent');
+            event.initCustomEvent(type, true, true);
+        }
+        extend(event, extraProperties);
+        return event;
+    }
+    m$.Event = Event;
+    function copy(target, obj, deep) {
+        each(obj, (key, value) => {
+            if (deep && typeOf(value, ['object', 'array'])) {
+                copy(createIfNeeded(target, key, type(value) === 'array' ? [] : {}), value);
+                return;
+            }
+            target[key] = value;
+        });
+    }
+    function extend(deepOrTarget, targetOrObject1, ...objectN) {
+        let deep, target;
+        if (deepOrTarget === true) {
+            deep = true;
+            target = targetOrObject1;
+        }
+        else {
+            target = deepOrTarget;
+            objectN.unshift(targetOrObject1);
+        }
+        each(objectN, (_, obj) => { copy(target, obj, deep); });
+        return target;
+    }
+    m$.extend = extend;
     /**
      * A factory function that returns a chainable utility object with methods
      * to register multiple callbacks into callback queues, invoke callback queues,
@@ -1435,9 +1457,7 @@ exports.mQuery = m$;
     const EMPTY = m$();
     const ROOT = m$(DOC);
     m$.ready = ROOT.ready;
-})(m$ = exports.m$ || (exports.m$ = {}));
-(function (m$) {
-    var Promise;
+    let Promise;
     (function (Promise) {
         let State;
         (function (State) {
@@ -1446,7 +1466,6 @@ exports.mQuery = m$;
             State["Rejected"] = "rejected";
         })(State = Promise.State || (Promise.State = {}));
         function returnArgs(fn) {
-            // return fn;
             return function () {
                 fn.apply(this, arguments);
                 return arguments;

@@ -420,16 +420,13 @@ export namespace m$ {
 
         public trigger(event, params?: PlainObject | any[]): mQuery {
             let customEvent = event;
-            // TODO: Insert params into detail if event is a Event.
 
             if (typeOf(event, 'string')) {
-                if (WIN && WIN['CustomEvent']) {
-                    customEvent = new CustomEvent(event, { bubbles: true, cancelable: true, detail: params });
-                } else {
-                    customEvent = DOC.createEvent('CustomEvent');
-                    customEvent.initCustomEvent(event, true, true, params);
-                }
+                customEvent = m$.Event(event);
             }
+
+            // Set detail into the event
+            extend(createIfNeeded(event, 'detail', {}), params);
 
             return this.each((_, elem) => {
                 if (event === 'focus') { return elem.focus() }
@@ -1058,21 +1055,19 @@ export namespace m$ {
         while (elem.lastChild) { elem.removeChild(elem.lastChild) }
     }
 
+
+    /**
+     * Create if needed, and return list[pos]
+     */
+    function createIfNeeded(list: any, pos: string | number, newInst: any = []): any[] {
+        if (!isSet(list[pos])) { list[pos] = newInst }
+        return list[pos];
+    }
+
     function addEvent(elem: HTMLElement, event: string, fn, selector: string, onCapture?) {
-        let prop = elem[APP_NAME].events, 
-            list = prop[event],
-            pos = selector || 0;
+        let prop = elem[APP_NAME].events;
 
-        if (!isSet(list)) {
-            list = prop[event] = [];
-        }
-
-        if (isSet(list[pos])) {
-            list[pos].push(fn);
-        } else {
-            list[pos] = [fn];
-        }
-
+        createIfNeeded(createIfNeeded(prop, event), selector || 0).push(fn);
         elem.addEventListener(event, fn.$handler, onCapture);
     }
 
@@ -1082,76 +1077,70 @@ export namespace m$ {
      * - Event name;
      * - Array of handlers.
      */
-    // FIXIT: QUANDO NAO PASSA EVENT ELE DELETA TUDO SEM CHECAR SE TEM UMA FN OU UM SELECTOR
     //FOR FUTURE, ADD "HOLLOVER"(SCROLLTOP), MAYBE Animation, 
-    function removeEvent(elem: HTMLElement, event: string, selector: string, fn): boolean {
+    function removeEvent(elem: HTMLElement, event: string, selector: string, fn): void {
         let list = elem[APP_NAME].events;
 
         if (!isSet(event)) {
-            // .off([selector,] handler)
-            if (isSet(fn)) {
-                for (let event in list) {
-                    if (removeEvent(elem, event, selector, fn)) { return true }
-                }
-                return false;
-            }
-
-            // .off()
+            // .off([selector, ][handler])
             for (let event in list) {
+                if (isSet(selector)) {
+                    removeEvent(elem, event, selector, fn);
+                    continue;
+                }
+
                 for (let selector in list[event]) {
                     removeEvent(elem, event, selector, fn);
                 }
             }
-            return true;
+            return;
         }
 
         // get selectors
         list = list[event];
-        if (!isSet(list)) { return false }
+        if (!isSet(list)) { return }
 
         // get handlers
         list = list[selector || 0];
-        if (!isSet(list)) { return false }
+        if (!isSet(list)) { return }
 
         // .off(events[, selector])
         if (!isSet(fn)) {
             while(list.length) {
                 removeEvent(elem, event, selector, list[0]);
             }
-            return true;
+            return;
         }
 
         // Get index of handler
         let index = inArray(fn, list);
-        if (index === -1) { return false }
+        if (index === -1) { return }
 
         // .off(events[, selector], handler)
         elem.removeEventListener(event, fn.$handler);
 
         // Remove handler from list
         list.splice(index, 1);
-        return true;
+        return;
     }
 
     function addEventListener(inst: mQuery, events: string, selector?: string, data?, fn?, one?: boolean): mQuery {
         let hasSelector = isSet(selector);
 
-        if (!isSet(fn.$handler)) {
-            fn.$handler = function (e) {
-                if (one) { removeEvent(this, e.type, selector, fn) }
-                if (hasSelector) {
-                    addEventListener(   
-                        m$(e.path).filter(selector), 
-                        e.type, 
-                        void 0,
-                        data, 
-                        function () { return fn.apply(this, arguments) }, 
-                        true);
-                    return;
-                }
-                e.data = data;
-                return fn.apply(this, arguments);
+        fn.$handler = function (e) {
+            if (one) { removeEvent(this, e.type, selector, fn) }
+            if (hasSelector) {
+                addEventListener(   
+                    m$(e.path).filter(selector), 
+                    e.type, 
+                    void 0,
+                    data, 
+                    function () { return fn.apply(this, arguments) }, 
+                    true);
+                return;
             }
+            e.data = data;
+            return fn.apply(this, arguments);
         }
 
         return inst.each((_, elem) => {
@@ -1162,12 +1151,9 @@ export namespace m$ {
     }
 
     function removeEventListener(inst: mQuery, events: string, selector?: string, fn?): mQuery {
+        let eventList = events ? events.split(' ') : [void 0];
         return inst.each((_, elem) => {
-            if (!events) {
-                removeEvent(elem, void 0, selector, fn);
-                return;
-            }
-            events.split(' ').forEach((event) => {
+            eventList.forEach((event) => {
                 removeEvent(elem, event, selector, fn);
             });
         });
@@ -1186,13 +1172,12 @@ export namespace m$ {
      * Verify the type of object passed and compare.
      */
     function typeOf(obj: any, types: string | string[]): boolean {
-        let matched = (typeof obj).toLowerCase(),
+        let match = type(obj),
             some = (type) => {
-                if (matched !== 'object') { return matched === type }
+                if (match === type)       { return true }
                 if (type === 'document')  { return obj instanceof Document }
                 if (type === 'window')    { return obj instanceof Window }
                 if (type === 'element')   { return obj instanceof Element }
-                if (type === 'array')     { return Array.isArray(obj) }
                 // if (type === 'mquery')      { return obj instanceof mQuery }
                 return false;
             };
@@ -1304,7 +1289,7 @@ export namespace m$ {
                 return stringInsertFn(child);
             }
 
-            // If node
+            // If node with no parent
             if (!hasParent(child)) {
                 return elemInsertFn(child);
             }
@@ -1346,7 +1331,7 @@ export namespace m$ {
      * @param obj Object to be verified.
      */
     export function isArrayLike(obj): boolean {
-        if (Array.isArray(obj)) { return true }
+        if (typeOf(obj, 'array')) { return true }
         if (!obj || typeOf(obj, ['function', 'string', 'window'])) { return false }
 
         let length = obj.length;
@@ -1823,6 +1808,60 @@ export namespace m$ {
         });
     }
 
+    export function Event(src: PlainObject, extraProperties?: PlainObject);
+    /**
+     * Creates a generic event with extra properties passed by parameter.
+     * @param type event type.
+     * @param extraProperties extra properties.
+     */
+    export function Event(type: string, extraProperties?: PlainObject);
+    export function Event(src, extraProperties = {}) {
+        let event, type;
+        
+        if (typeOf(src, 'object')) {
+            type = src.type;
+        } else {
+            type = src;
+        }
+
+        if (WIN && WIN['CustomEvent']) {
+            event = new CustomEvent(type, { bubbles: true, cancelable: true });
+        } else {
+            event = DOC.createEvent('CustomEvent');
+            event.initCustomEvent(type, true, true);
+        }
+
+        extend(event, extraProperties);
+        return event;
+    }
+
+    function copy(target: Object, obj: Object, deep?: true) {
+        each(obj, (key, value) => {
+            if (deep && typeOf(value, ['object', 'array'])) {
+                copy(createIfNeeded(target, key, type(value) === 'array' ? [] : {}), value);
+                return;
+            }
+            target[key] = value;
+        });
+    }
+
+    export function extend(deep: true | void, target: Object, ...objectN: Object[]);
+    export function extend(target: Object, object1: Object, ...objectN: Object[]);
+    export function extend(deepOrTarget, targetOrObject1, ...objectN: Object[]) {
+        let deep: true, target: Object;
+
+        if (deepOrTarget === true) {
+            deep = true;
+            target = targetOrObject1;
+        } else {
+            target = deepOrTarget;
+            objectN.unshift(targetOrObject1);
+        }
+
+        each(objectN, (_, obj) => { copy(target, obj, deep) })
+        return target;
+    }
+
     /**
      * A factory function that returns a chainable utility object with methods
      * to register multiple callbacks into callback queues, invoke callback queues,
@@ -1836,136 +1875,133 @@ export namespace m$ {
     const EMPTY = m$();
     const ROOT = m$(DOC);
     export const ready = ROOT.ready;
-}
 
-export namespace m$.Promise {
-
-    type Pipeline = {
-        done: Function[],
-        fail: Function[],
-        context?: any,
-        args?: any
-    }
-
-    export enum State {
-        Pending = 'pending',
-        Resolved = 'resolved',
-        Rejected = 'rejected'
-    }
-
-    function returnArgs(fn: Function): Function {
-        // return fn;
-        return function () {
-            fn.apply(this, arguments);
-            return arguments;
+    export namespace Promise {
+        type Pipeline = {
+            done: Function[],
+            fail: Function[],
+            context?: any,
+            args?: any
         }
-    }
-
-    function call(fns, context, args?: any[]): any {
-        fns.forEach((fn) => {
-            args = fn.apply(context, args) || [void 0];
-        });
-        return args;
-    }
-
-    /**
-     * Chainable utility
-     */
-    export class Deferred {
-        private _state: State;
-        private pipeline: Pipeline;
-
-        constructor(beforeStart?: Function) {
-            this._state = State.Pending;
-            this.pipeline = { done: [], fail: [] };
-            beforeStart && beforeStart(this);
+    
+        export enum State {
+            Pending = 'pending',
+            Resolved = 'resolved',
+            Rejected = 'rejected'
         }
-
-        private changeState(newState: State, context, args): boolean {
-            if (this._state !== State.Pending) { return false }
-            this._state = newState;
-            this.pipeline.context = context;
-            this.pipeline.args = args;
-            return true;
-        }
-
-
-        public resolve(...args): this {
-            args.unshift(this);
-            return this.resolveWith.apply(this, args);
-        }
-
-        public reject(...args): this {
-            args.unshift(this);
-            return this.rejectWith.apply(this, args);
-        }
-
-        public resolveWith(context, ...args): this {
-            if (this.changeState(State.Resolved, context, args)) {
-                this.pipeline.args = call(this.pipeline.done, context, args);
+    
+        function returnArgs(fn: Function): Function {
+            return function () {
+                fn.apply(this, arguments);
+                return arguments;
             }
-            return this;
         }
-
-        public rejectWith(context, ...args): this {
-            if (this.changeState(State.Rejected, context, args)) {
-                this.pipeline.args = call(this.pipeline.fail, context, args);
-            }
-            return this;
+    
+        function call(fns, context, args?: any[]): any {
+            fns.forEach((fn) => {
+                args = fn.apply(context, args) || [void 0];
+            });
+            return args;
         }
-
-        public state(): string {
-            return this._state;
-        }
-
-        public promise(): Deferred {
-            return this;
-        }
-
-        public done(callback: (...args) => void): Deferred {
-            if (!callback) { return this }
-
-            if (this.state() === State.Resolved) {
-                callback.apply(this.pipeline.context, this.pipeline.args);
-            } else {
-                this.pipeline.done.push(returnArgs(callback));
+    
+        /**
+         * Chainable utility
+         */
+        export class Deferred {
+            private _state: State;
+            private pipeline: Pipeline;
+    
+            constructor(beforeStart?: Function) {
+                this._state = State.Pending;
+                this.pipeline = { done: [], fail: [] };
+                beforeStart && beforeStart(this);
             }
 
-            return this;
-        }
-
-        public fail(callback: (...args) => void): Deferred {
-            if (!callback) { return this }
-
-            if (this.state() === State.Rejected) {
-                callback.apply(this.pipeline.context, this.pipeline.args);
-            } else {
-                this.pipeline.fail.push(returnArgs(callback));
+            private changeState(newState: State, context, args): boolean {
+                if (this._state !== State.Pending) { return false }
+                this._state = newState;
+                this.pipeline.context = context;
+                this.pipeline.args = args;
+                return true;
             }
 
-            return this;
-        }
-
-        public then(successFilter: (...args) => any, errorFilter?: (...args) => any): Deferred {
-            let p = this.pipeline;
-
-            if (!successFilter) { return this }
-            if (this.state() === State.Resolved) {
-                successFilter.apply(p.context, p.args);
+            public resolve(...args): this {
+                args.unshift(this);
+                return this.resolveWith.apply(this, args);
             }
-            p.done.push(successFilter);
 
-            if (!errorFilter) { return this }
-            if (this.state() === State.Rejected) {
-                errorFilter.apply(p.context, p.args);
+            public reject(...args): this {
+                args.unshift(this);
+                return this.rejectWith.apply(this, args);
             }
-            p.fail.push(errorFilter);
 
-            return this;
-        }
+            public resolveWith(context, ...args): this {
+                if (this.changeState(State.Resolved, context, args)) {
+                    this.pipeline.args = call(this.pipeline.done, context, args);
+                }
+                return this;
+            }
 
-        public always(callback: (...args) => void): Deferred {
-            return this.done(callback).fail(callback);
+            public rejectWith(context, ...args): this {
+                if (this.changeState(State.Rejected, context, args)) {
+                    this.pipeline.args = call(this.pipeline.fail, context, args);
+                }
+                return this;
+            }
+
+            public state(): string {
+                return this._state;
+            }
+
+            public promise(): Deferred {
+                return this;
+            }
+
+            public done(callback: (...args) => void): Deferred {
+                if (!callback) { return this }
+
+                if (this.state() === State.Resolved) {
+                    callback.apply(this.pipeline.context, this.pipeline.args);
+                } else {
+                    this.pipeline.done.push(returnArgs(callback));
+                }
+
+                return this;
+            }
+
+            public fail(callback: (...args) => void): Deferred {
+                if (!callback) { return this }
+
+                if (this.state() === State.Rejected) {
+                    callback.apply(this.pipeline.context, this.pipeline.args);
+                } else {
+                    this.pipeline.fail.push(returnArgs(callback));
+                }
+
+                return this;
+            }
+
+            public then(successFilter: (...args) => any, errorFilter?: (...args) => any): Deferred {
+                let p = this.pipeline;
+
+                if (!successFilter) { return this }
+                if (this.state() === State.Resolved) {
+                    successFilter.apply(p.context, p.args);
+                }
+                p.done.push(successFilter);
+
+                if (!errorFilter) { return this }
+                if (this.state() === State.Rejected) {
+                    errorFilter.apply(p.context, p.args);
+                }
+                p.fail.push(errorFilter);
+
+                return this;
+            }
+
+            public always(callback: (...args) => void): Deferred {
+                return this.done(callback).fail(callback);
+            }
         }
     }
 }
