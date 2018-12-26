@@ -723,7 +723,7 @@ exports.mQuery = m$;
      * NOTE: [], 0 and "" will return true.
      */
     function isSet(param) {
-        return param !== void 0;
+        return !(param === void 0 || param === null);
     }
     /**
      * Verify if array-like object is empty
@@ -1349,12 +1349,31 @@ exports.mQuery = m$;
      * Find elements by selector in context and insert in inst.
      */
     function find(inst, context, selector) {
+        let type = selector.match(/^([#.]?)([-\w]+)(.*)$/), fn;
+        if (typeOf(selector, 'string')) {
+            if (type[3]) { // selector
+                fn = 'querySelectorAll';
+            }
+            else if (!type[1]) { // tag
+                fn = 'getElementsByTagName';
+            }
+            else if (type[1] === '.') { // class
+                fn = 'getElementsByClassName';
+                selector = type[2];
+            }
+        }
         try {
-            context.each((_, elem) => {
-                if (!elem.querySelectorAll) {
+            context.each((_, el) => {
+                if (fn) {
+                    if (!el[fn]) {
+                        return;
+                    }
+                    merge(inst, el[fn](selector));
+                }
+                if (!el.querySelector) {
                     return;
                 }
-                merge(inst, elem.querySelectorAll(selector));
+                merge(inst, [el.querySelector(selector)]);
             });
             return setContext(inst, context);
         }

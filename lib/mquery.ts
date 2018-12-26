@@ -1040,7 +1040,7 @@ export namespace m$ {
      * NOTE: [], 0 and "" will return true.
      */
     function isSet(param: any): boolean {
-        return param !== void 0;
+        return !(param === void 0 || param === null);
     }
 
     /**
@@ -1717,10 +1717,28 @@ export namespace m$ {
      * Find elements by selector in context and insert in inst.
      */
     function find(inst: mQuery, context: mQuery, selector: any): mQuery {
+        let type = selector.match(/^([#.]?)([-\w]+)(.*)$/), fn: string;
+        if (typeOf(selector, 'string')) {
+            if (type[3]) { // selector
+                fn = 'querySelectorAll';
+
+            } else if (!type[1]) { // tag
+                fn = 'getElementsByTagName';
+
+            } else if (type[1] === '.') { // class
+                fn = 'getElementsByClassName';
+                selector = type[2];
+            }
+        }
         try {
-            context.each((_, elem) => {
-                if (!elem.querySelectorAll) { return }
-                merge(inst, elem.querySelectorAll(selector));
+            context.each((_, el) => {
+                if (fn) {
+                    if (!el[fn]) { return; }
+                    merge(inst, el[fn](selector));
+                }
+
+                if (!el.querySelector) { return; }
+                merge(inst, [el.querySelector(selector)]);
             });
             return setContext(inst, context);
         } catch (e) {
