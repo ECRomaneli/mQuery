@@ -31,12 +31,23 @@ $(() => { m$(() => {
         m$('span', 'div');
         m$('span', window);
     })
+
+    test('.prevObject', () => {
+        return m$().prevObject === void 0
+            && m$('div').prevObject[0] === document
+            && m$('', document).prevObject === void 0
+            && m$('span', 'div').prevObject.length === 24
+            && m$('span', 'div').end().end().first()[0] === document
+            && m$('span', 'div').prevObject.prevObject[0] === document
+    })
     
     test('.length', () => {
         return m$().length === 0
-            && m$('div').length > 0
-            && m$('span', 'div').length > 0
+            && m$('div').length === 24
+            && m$('span').length === 40
+            && m$('div', 'div').length === 23
             && m$('span').length === $('span').length
+            && m$('span', 'div').length === m$('span').length
             && m$('span', 'div').length === $('span', 'div').length
     })
     
