@@ -7,17 +7,85 @@
     <title>Tests</title>
 
     <style>
-        .layer-1, .layer-2 {
-            margin: 10px;
-            padding: 5px;
+        body {
+            text-align: center;
+            padding: 0;
+            margin: 0;
+            background-color: #f8f8f8;
         }
 
-        .layer-1 {
-            background-color: red;
+        div, span {
+            position: relative;
+            text-align: center;
+            display: inline-block;
+            border-radius: 4px;
         }
 
-        .layer-2 {
-            background-color: blue;
+        .container {
+            max-width: 900px;
+            height: 100vh;
+            box-shadow: 0px 0px 20px 0px #ddd;
+        }
+
+        .l1 {
+            margin: 1%;
+            width: 42%;
+            padding: 2%;
+            background-color: #fff;
+            box-shadow: 0px 0px 8px #bbb;
+        }
+
+        .l2 {
+            width: 47%;
+            padding: 1%;
+            background-color: #7B1FA2;
+        }
+
+        .l3 {
+            width: 44%;
+            padding: 2%;
+            border-radius: 4px;
+            background-color: #9C27B0;
+        }
+
+        .l4 {
+            background-color: white;
+            margin-bottom: 10%;
+            font-weight: bold;
+            cursor: default;
+            width: 70%;
+            padding: 20% 0;
+        }
+
+        .title {
+            display: block;
+            text-align: left;
+            padding: 10px;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 30px;
+        }
+
+        #resize, #form, #query {
+            width: 100%;
+        }
+
+        .card {
+            width: 95%;
+            height: 200px;
+            background-color: #fff;
+            box-shadow: 0px 0px 8px #bbb;
+        }
+
+        .cube {
+            background-color: black;
+            width: 40px;
+            height: 40px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: 0.5s linear all;
         }
     </style>
     <script
@@ -25,93 +93,131 @@
         integrity="sha256-2Kok7MbOyxpgUVvAk/HJ2jigOSYS2auK4Pfzbm7uH60="
         crossorigin="anonymous"></script>
     <script src="../dist/web/mquery.js"></script>
-    <script src="web.js"></script>
+    <script src="web-test.js"></script>
+    <script>
+        m$($ => {
+            $('.cube')
+            .on('mouseenter', function () {
+                $(this).width(80).height('80px');
+            })
+            .on('mouseenter', function () {
+                console.log('mouseenter', '1');
+            })
+            .on('mouseenter', function () {
+                console.log('mouseenter', '2');
+            })
+            .on('mouseenter', function () {
+                console.log('mouseenter', '3');
+            })
+            .one('mouseenter', function () {
+                console.log('mouseenter', '4', 'one', arguments);
+            })
+            .on('mouseleave', function () {
+                $(this).css({ width: '40px', height: '40px' });
+            })
+            .on('mouseleave', function () {
+                console.log('mouseleave', '1');
+            })
+            .on('mouseleave', function () {
+                console.log('mouseleave', '2');
+            })
+            .on('mouseleave', function () {
+                console.log('mouseleave', '3');
+            })
+        })
+    </script>
 </head>
 <body>
-    <input type="text" name="text" id="text">
-    <input type="checkbox" name="checkbox" id="checkbox">
-    <input type="radio" name="radio" id="radio">
-    <textarea name="textarea" id="textarea" cols="30" rows="10"></textarea>
-    <input type="range" data-teste-query='{}' data-teste-query2='{"teste":"pamramram"}' name="range" id="range">
-    <div class="layer-1" id="id-1-1">
-        <div class="layer-2">
-            <span class="layer-3">I am the 1</span>
-            <span class="layer-3">I am the 2</span>
-            <span class="layer-3">I am the 3</span>
-            <span class="layer-3">I am the 4</span>
-            <span class="layer-3">I am the 5</span>
-            
+    
+    <div class="container">
+        <div id="query">
+            <div class="title">Query</div>
+            <div class="l1" id="l1-1">
+                <div class="l2" id="l2-1">
+                    <div class="l3" id="l3-1">
+                        <span class="l4" id="l4-01">[01]</span>
+                        <span class="l4" id="l4-02">[02]</span>
+                        <span class="l4" id="l4-03">[03]</span>
+                        <span class="l4" id="l4-04">[04]</span>
+                        <span class="l4" id="l4-05">[05]</span>
+                    </div>
+                    <div class="l3" id="l3-2">
+                        <span class="l4" id="l4-06">[06]</span>
+                        <span class="l4" id="l4-07">[07]</span>
+                        <span class="l4" id="l4-08">[08]</span>
+                        <span class="l4" id="l4-09">[09]</span>
+                        <span class="l4" id="l4-10">[10]</span>
+                    </div>
+                </div>
+                <div class="l2" id="l2-2">
+                    <div class="l3" id="l3-3">
+                        <span class="l4" id="l4-11">[11]</span>
+                        <span class="l4" id="l4-12">[12]</span>
+                        <span class="l4" id="l4-13">[13]</span>
+                        <span class="l4" id="l4-14">[14]</span>
+                        <span class="l4" id="l4-15">[15]</span>
+                    </div>
+                    <div class="l3" id="l3-4">
+                        <span class="l4" id="l4-16">[16]</span>
+                        <span class="l4" id="l4-17">[17]</span>
+                        <span class="l4" id="l4-18">[18]</span>
+                        <span class="l4" id="l4-19">[19]</span>
+                        <span class="l4" id="l4-20">[20]</span>
+                    </div>
+                </div>
+            </div>
+            <div class="l1" id="l1-2">
+                <div class="l2" id="l2-3">
+                    <div class="l3" id="l3-5">
+                        <span class="l4" id="l4-21">[21]</span>
+                        <span class="l4" id="l4-22">[22]</span>
+                        <span class="l4" id="l4-23">[23]</span>
+                        <span class="l4" id="l4-24">[24]</span>
+                        <span class="l4" id="l4-25">[25]</span>
+                    </div>
+                    <div class="l3" id="l3-6">
+                        <span class="l4" id="l4-26">[26]</span>
+                        <span class="l4" id="l4-27">[27]</span>
+                        <span class="l4" id="l4-28">[28]</span>
+                        <span class="l4" id="l4-29">[29]</span>
+                        <span class="l4" id="l4-30">[30]</span>
+                    </div>
+                </div>
+                <div class="l2" id="l2-4">
+                    <div class="l3" id="l3-7">
+                        <span class="l4" id="l4-31">[31]</span>
+                        <span class="l4" id="l4-32">[32]</span>
+                        <span class="l4" id="l4-33">[33]</span>
+                        <span class="l4" id="l4-34">[34]</span>
+                        <span class="l4" id="l4-35">[35]</span>
+                    </div>
+                    <div class="l3" id="l3-8">
+                        <span class="l4" id="l4-36">[36]</span>
+                        <span class="l4" id="l4-37">[37]</span>
+                        <span class="l4" id="l4-38">[38]</span>
+                        <span class="l4" id="l4-39">[39]</span>
+                        <span class="l4" id="l4-40">[40]</span>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="layer-2">
-            <span class="layer-3">I am the 1</span>
-            <span class="layer-3">I am the 2</span>
-            <span class="layer-3">I am the 3</span>
-            <span class="layer-3">I am the 4</span>
-            <span class="layer-3">I am the 5</span>
+
+        <div id="form">
+            <div class="title">Form and Data</div>
+            <div class="card">
+                <input type="text" name="text" id="text">
+                <input type="checkbox" name="checkbox" id="checkbox">
+                <input type="radio" name="radio" id="radio">
+                <textarea name="textarea" id="textarea" cols="30" rows="10"></textarea>
+                <input type="range" data-teste-query='{}' data-teste-query2='{"teste":"pamramram"}' name="range" id="range">
+            </div>
         </div>
-    </div>
-    <div class="layer-1" id="id-1-2">
-        <div class="layer-2">
-            <span class="layer-3">I am the 1</span>
-            <span class="layer-3">I am the 2</span>
-            <span class="layer-3">I am the 3</span>
-            <span class="layer-3">I am the 4</span>
-            <span class="layer-3">I am the 5</span>
-        </div>
-        <div class="layer-2">
-            <span class="layer-3">I am the 1</span>
-            <span class="layer-3">I am the 2</span>
-            <span class="layer-3">I am the 3</span>
-            <span class="layer-3">I am the 4</span>
-            <span class="layer-3">I am the 5</span>
-        </div>
-    </div>
-    <div class="layer-1" id="id-1-3">
-        <div class="layer-2">
-            <span class="layer-3">I am the 1</span>
-            <span class="layer-3">I am the 2</span>
-            <span class="layer-3">I am the 3</span>
-            <span class="layer-3">I am the 4</span>
-            <span class="layer-3">I am the 5</span>
-        </div>
-        <div class="layer-2">
-            <span class="layer-3">I am the 1</span>
-            <span class="layer-3">I am the 2</span>
-            <span class="layer-3">I am the 3</span>
-            <span class="layer-3">I am the 4</span>
-            <span class="layer-3">I am the 5</span>
-        </div>
-    </div>
-    <div class="layer-1" id="id-1-4">
-        <div class="layer-2">
-            <span class="layer-3">I am the 1</span>
-            <span class="layer-3">I am the 2</span>
-            <span class="layer-3">I am the 3</span>
-            <span class="layer-3">I am the 4</span>
-            <span class="layer-3">I am the 5</span>
-        </div>
-        <div class="layer-2">
-            <span class="layer-3">I am the 1</span>
-            <span class="layer-3">I am the 2</span>
-            <span class="layer-3">I am the 3</span>
-            <span class="layer-3">I am the 4</span>
-            <span class="layer-3">I am the 5</span>
-        </div>
-    </div>
-    <div class="layer-1" id="id-1-5">
-        <div class="layer-2">
-            <span class="layer-3">I am the 1</span>
-            <span class="layer-3">I am the 2</span>
-            <span class="layer-3">I am the 3</span>
-            <span class="layer-3">I am the 4</span>
-            <span class="layer-3">I am the 5</span>
-        </div>
-        <div class="layer-2">
-            <span class="layer-3">I am the 1</span>
-            <span class="layer-3">I am the 2</span>
-            <span class="layer-3">I am the 3</span>
-            <span class="layer-3">I am the 4</span>
-            <span class="layer-3">I am the 5</span>
+
+        <div id="resize">
+            <div class="title">Resize</div>
+            <div class="card">
+                <div class="cube"></div>
+            </div>
         </div>
     </div>
 </body>
